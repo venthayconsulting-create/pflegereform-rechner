@@ -105,7 +105,7 @@
     var fehler = {};
     var e = raw || {};
     var pg = e.pflegegrad === undefined || e.pflegegrad === null ? '' : String(e.pflegegrad);
-    if (PG_WERTE.indexOf(pg) < 0) { fehler.pflegegrad = 'Bitte wählen Sie einen Pflegegrad oder „unklar“ aus.'; }
+    if (PG_WERTE.indexOf(pg) < 0) { fehler.pflegegrad = 'Bitte wählen Sie einen Pflegegrad, „Noch keiner“ oder „Weiß ich nicht“ aus.'; }
     var vers = e.versorgung;
     if (vers !== 'zuhause' && vers !== 'heim') { fehler.versorgung = 'Bitte wählen Sie aus, wo die Pflege stattfindet.'; }
     var antrag = e.antrag_gestellt;
@@ -157,6 +157,7 @@
         add('R1_entlastung_rest');
         bis.push({
           id: 'R1_entlastung_rest', prio: 1, status: 'entwurf',
+          jahr: D.entlastung2026Jahr, genutzt: e.entl,
           titel: 'Entlastungsbetrag 2026',
           betrag: restEntl, betragText: fmt(restEntl) + ' rechnerisch offen',
           frist: 'Belege möglichst bis 31.12.2026 einreichen',
@@ -166,6 +167,7 @@
       } else {
         bis.push({
           id: 'R1_entlastung_erledigt', prio: 9, status: 'erledigt',
+          jahr: D.entlastung2026Jahr, genutzt: e.entl,
           titel: 'Entlastungsbetrag 2026',
           betrag: 0, betragText: 'nach Ihren Angaben ausgeschöpft',
           frist: '',
@@ -179,6 +181,7 @@
         add('R2_verhinderung_rest');
         bis.push({
           id: 'R2_verhinderung_rest', prio: 2, status: 'entwurf',
+          jahr: D.jahresbetragVK2026, genutzt: e.verh,
           titel: 'Verhinderungs- und Kurzzeitpflege 2026',
           betrag: restVK, betragText: fmt(restVK) + ' rechnerisch offen',
           frist: 'Belege zeitnah einreichen; Erstattungsantrag für Ersatzpflege 2026 nach geltendem Recht bis 31.12.2027 (ob der Entwurf daran etwas ändert, ist offen)',
@@ -188,6 +191,7 @@
       } else {
         bis.push({
           id: 'R2_verhinderung_erledigt', prio: 9, status: 'erledigt',
+          jahr: D.jahresbetragVK2026, genutzt: e.verh,
           titel: 'Verhinderungs- und Kurzzeitpflege 2026',
           betrag: 0, betragText: 'nach Ihren Angaben ausgeschöpft',
           frist: '',
@@ -449,6 +453,12 @@
 
   /* ---------- Oberfläche ---------- */
   function initUI(doc) {
+    var tage = doc.getElementById('tage-rest');
+    if (tage) {
+      var jetzt = new Date();
+      var rest = Math.round((Date.UTC(2026, 11, 31) - Date.UTC(jetzt.getFullYear(), jetzt.getMonth(), jetzt.getDate())) / 86400000);
+      tage.textContent = rest > 1 ? rest + ' Tage' : rest === 1 ? '1 Tag' : rest === 0 ? 'Heute ist der letzte Tag' : 'Frist abgelaufen';
+    }
     var form = doc.getElementById('rechner-form');
     var out = doc.getElementById('ergebnis');
     if (!form || !out) { return; }
@@ -464,19 +474,18 @@
       if (text !== undefined && text !== null) { n.textContent = text; }
       return n;
     }
-    function chip(status) {
+    function statusText(status) {
       var map = {
-        geltend: ['chip chip-geltend', 'Geltendes Recht'],
-        entwurf: ['chip chip-entwurf', 'Laut Gesetzentwurf (Stand 14.11.2026)'],
-        offen: ['chip chip-offen', 'Noch offen'],
-        erledigt: ['chip chip-geltend', 'Nach Ihren Angaben erledigt']
+        geltend: 'Geltendes Recht',
+        entwurf: 'Laut Gesetzentwurf (Stand 14.11.2026)',
+        offen: 'Noch offen',
+        erledigt: 'Nach Ihren Angaben erledigt'
       };
-      var m = map[status] || map.offen;
-      return el('span', m[0], m[1]);
+      return map[status] || map.offen;
     }
 
     function sichtbarkeit() {
-      var pgv = $('pflegegrad').value;
+      var pgv = radio('pflegegrad');
       var pgn = /^[1-5]$/.test(pgv) ? Number(pgv) : 0;
       var zuhause = radio('versorgung') === 'zuhause';
       var gruppen = {
@@ -495,7 +504,7 @@
     function lies() {
       function sicht(id) { var g = $(id); return g && !g.hidden; }
       return {
-        pflegegrad: $('pflegegrad').value,
+        pflegegrad: radio('pflegegrad'),
         versorgung: radio('versorgung'),
         antrag_gestellt: radio('antrag_gestellt'),
         entlastungsbetrag_2026_genutzt_eur: sicht('g-entlastung') ? $('entlastung').value : '',
@@ -507,7 +516,7 @@
     }
 
     var feldMap = {
-      pflegegrad: ['pflegegrad', 'err-pflegegrad'],
+      pflegegrad: ['pg-1', 'err-pflegegrad'],
       versorgung: ['versorgung-zuhause', 'err-versorgung'],
       antrag_gestellt: ['antrag-ja', 'err-antrag'],
       entlastungsbetrag_2026_genutzt_eur: ['entlastung', 'err-entlastung'],
@@ -521,7 +530,7 @@
       if (p) { p.hidden = true; p.textContent = ''; }
       var inp = $(m[0]);
       if (inp) { inp.removeAttribute('aria-invalid'); }
-      if (k === 'versorgung' || k === 'antrag_gestellt') {
+      if (k === 'pflegegrad' || k === 'versorgung' || k === 'antrag_gestellt') {
         form.querySelectorAll('input[name="' + k + '"]').forEach(function (r) { r.removeAttribute('aria-invalid'); });
       }
     }
@@ -594,61 +603,118 @@
       if (n && map[n]) { feldLeeren(map[n]); }
     });
 
-    function adBox(id) {
-      var a = ADS[id];
-      if (!a) { return null; }
-      var box = el('aside', 'ad');
-      box.setAttribute('aria-label', 'Anzeige: ' + a.titel);
-      var kopf = el('p', 'ad-kopf');
-      kopf.appendChild(el('span', 'ad-label', 'Anzeige'));
-      kopf.appendChild(doc.createTextNode(' Partnerlink'));
+    function svgPfeil() {
+      var ns = 'http://www.w3.org/2000/svg';
+      var svg = doc.createElementNS(ns, 'svg');
+      svg.setAttribute('class', 'pfeil');
+      svg.setAttribute('viewBox', '0 0 16 16');
+      svg.setAttribute('width', '16');
+      svg.setAttribute('height', '16');
+      svg.setAttribute('aria-hidden', 'true');
+      svg.setAttribute('focusable', 'false');
+      var p = doc.createElementNS(ns, 'path');
+      p.setAttribute('d', 'M2 8h11M9 3.5 13.5 8 9 12.5');
+      svg.appendChild(p);
+      return svg;
+    }
+    function svgPlusMinus() {
+      var ns = 'http://www.w3.org/2000/svg';
+      var svg = doc.createElementNS(ns, 'svg');
+      svg.setAttribute('class', 'pm');
+      svg.setAttribute('viewBox', '0 0 16 16');
+      svg.setAttribute('aria-hidden', 'true');
+      svg.setAttribute('focusable', 'false');
+      var v = doc.createElementNS(ns, 'path');
+      v.setAttribute('class', 'v');
+      v.setAttribute('d', 'M8 2v12');
+      var h = doc.createElementNS(ns, 'path');
+      h.setAttribute('d', 'M2 8h12');
+      svg.appendChild(v);
+      svg.appendChild(h);
+      return svg;
+    }
+
+    /* Beiblatt mit Anzeigen: Kopf h3, Einträge h4 */
+    function beiblatt(ids) {
+      var box = el('aside', 'beiblatt');
+      box.setAttribute('aria-labelledby', 'beiblatt-kopf');
+      var kopf = el('h3', 'beiblatt-kopf', 'Anzeige · Partnerangebote');
+      kopf.id = 'beiblatt-kopf';
       box.appendChild(kopf);
-      box.appendChild(el('h4', 'ad-titel', a.titel));
-      box.appendChild(el('p', '', a.text));
-      var link = el('a', 'btn btn-sek', a.cta + ' (Anzeige)');
-      link.href = a.href;
-      link.rel = 'sponsored nofollow noopener';
-      box.appendChild(link);
+      box.appendChild(el('p', 'beiblatt-hinweis', 'Wir erhalten ggf. eine Vergütung. Für Sie entstehen keine Mehrkosten.'));
+      ids.forEach(function (id) {
+        var a = ADS[id];
+        if (!a) { return; }
+        var row = el('div', 'eintrag');
+        row.appendChild(el('h4', 'eintrag-titel', a.titel));
+        row.appendChild(el('p', null, a.text));
+        var link = el('a', 'textlink');
+        link.href = a.href;
+        link.rel = 'sponsored nofollow noopener';
+        link.appendChild(doc.createTextNode(a.cta + ' '));
+        link.appendChild(el('span', 'anz', '(Anzeige)'));
+        link.appendChild(svgPfeil());
+        row.appendChild(link);
+        box.appendChild(row);
+      });
       return box;
     }
 
-    function render(r) {
+    /* Tabellen-Bausteine */
+    function th(text, scope, cls) {
+      var c = el('th', cls || null, text);
+      c.setAttribute('scope', scope);
+      return c;
+    }
+    function td(text, label, cls) {
+      var c = el('td', cls || null, text);
+      if (label) { c.setAttribute('data-label', label); }
+      return c;
+    }
+    function tabelle(caption, heads, extraCls) {
+      var wrapT = el('div', 'tabelle-wrap');
+      var t = el('table', 'tabelle' + (extraCls ? ' ' + extraCls : ''));
+      t.appendChild(el('caption', null, caption));
+      var tr = el('tr', null);
+      heads.forEach(function (h) { tr.appendChild(th(h[0], 'col', h[1])); });
+      var thead = el('thead', null);
+      thead.appendChild(tr);
+      t.appendChild(thead);
+      wrapT.appendChild(t);
+      return { wrap: wrapT, table: t };
+    }
+
+    function datumHeute() {
+      var d = new Date();
+      function z(n) { return (n < 10 ? '0' : '') + n; }
+      return z(d.getDate()) + '.' + z(d.getMonth() + 1) + '.' + d.getFullYear();
+    }
+    function pgText(pg) {
+      if (/^[1-5]$/.test(pg)) { return 'Pflegegrad ' + pg; }
+      if (pg === '0') { return 'noch kein Pflegegrad'; }
+      return 'Pflegegrad unklar';
+    }
+
+    function render(r, eing) {
       out.textContent = '';
       var wrap = el('div', 'ergebnis-inhalt');
-      var h2 = el('h2', null, 'Ihr Ergebnis');
+      var h2 = el('h2', null, 'Ihre Übersicht');
       h2.id = 'ergebnis-titel';
       h2.tabIndex = -1;
       wrap.appendChild(h2);
-      wrap.appendChild(el('p', 'notice', r.kopfzeile));
+      wrap.appendChild(el('p', 'ergebnis-meta', pgText(eing.pflegegrad) + ' · ' + (eing.versorgung === 'heim' ? 'Pflegeheim' : 'häusliche Pflege') + ' · berechnet am ' + datumHeute()));
+      wrap.appendChild(el('p', 'hinweis', r.kopfzeile));
       if (r.beruhigung) { wrap.appendChild(el('p', 'beruhigung', r.beruhigung)); }
 
-      /* Auf einen Blick */
-      var blick = el('section', 'blick');
-      blick.setAttribute('aria-labelledby', 'erg-blick');
-      var hbl = el('h3', null, 'Auf einen Blick');
-      hbl.id = 'erg-blick';
-      blick.appendChild(hbl);
-      if (r.bis.length) {
-        var bl = el('ul', 'blick-liste');
-        r.bis.forEach(function (it) {
-          var li = el('li', null);
-          li.appendChild(el('span', 'blick-titel', it.titel));
-          if (it.betragText) { li.appendChild(el('span', 'blick-betrag', it.betragText)); }
-          bl.appendChild(li);
-        });
-        blick.appendChild(bl);
-      }
-      var sprung = el('p', 'blick-sprung');
-      [['#erg-a', 'Fristen 2026'], ['#erg-c', 'Nächste Schritte'], ['#erg-b', 'Vergleich 2027']].forEach(function (x, i) {
-        if (i) { sprung.appendChild(doc.createTextNode(' ')); }
+      var sprung = el('p', 'sprung');
+      [['#erg-a', 'Fristen 2026'], ['#erg-b', 'Vergleich 2027'], ['#erg-c', 'Was Sie jetzt tun können']].forEach(function (x) {
         var a = el('a', null, x[1]);
         a.href = x[0];
         sprung.appendChild(a);
       });
-      blick.appendChild(sprung);
-      wrap.appendChild(blick);
+      wrap.appendChild(sprung);
 
-      /* (a) */
+      /* (a) Fristen 2026 als Tabelle */
       var sa = el('section', 'erg-block');
       sa.setAttribute('aria-labelledby', 'erg-a');
       var ha = el('h3', null, 'Bis 31.12.2026 noch nutzen');
@@ -656,79 +722,116 @@
       sa.appendChild(ha);
       if (!r.bis.length) {
         sa.appendChild(el('p', null, 'Aus Ihren Angaben ergeben sich keine betragsbezogenen Fristen zum 31.12.2026. Das ersetzt keine Auskunft Ihrer Pflegekasse.'));
-      }
-      r.bis.forEach(function (it) {
-        var card = el('article', 'karte karte-' + it.status);
-        var kopf = el('div', 'karte-kopf');
-        kopf.appendChild(el('h4', 'karte-titel', it.titel));
-        kopf.appendChild(chip(it.status));
-        card.appendChild(kopf);
-        if (it.betragText) { card.appendChild(el('p', 'betrag', it.betragText)); }
-        if (it.frist) {
-          var f = el('p', 'frist');
-          f.appendChild(el('strong', null, 'Frist: '));
-          f.appendChild(doc.createTextNode(it.frist));
-          card.appendChild(f);
+      } else {
+        var ta = tabelle('Leistungen und Fristen 2026', [['Leistung', null], ['Jahresbetrag 2026', 'zahl'], ['bereits genutzt', 'zahl'], ['noch offen', 'zahl'], ['Frist', null]]);
+        ta.table.firstChild.className = 'sr-only';
+        var sumJahr = 0, sumGen = 0, sumRest = 0, hatSumme = false;
+        r.bis.forEach(function (it) {
+          var tb = el('tbody', null);
+          var tr = el('tr', 'hat-notiz');
+          tr.appendChild(th(it.titel, 'row'));
+          tr.lastChild.setAttribute('data-label', 'Leistung');
+          if (it.jahr !== undefined) {
+            hatSumme = true;
+            sumJahr += it.jahr; sumGen += it.genutzt; sumRest += it.betrag;
+            tr.appendChild(td(fmt(it.jahr), 'Jahresbetrag 2026', 'zahl'));
+            tr.appendChild(td(fmt(it.genutzt), 'bereits genutzt', 'zahl'));
+            tr.appendChild(td(fmt(it.betrag), 'noch offen', 'zahl' + (it.betrag > 0 ? ' rest' : '')));
+          } else {
+            tr.appendChild(td(it.betragText || '–', 'Jahresbetrag 2026', it.betragText ? null : 'zahl'));
+            tr.appendChild(td('–', 'bereits genutzt', 'zahl'));
+            tr.appendChild(td('–', 'noch offen', 'zahl'));
+          }
+          tr.appendChild(td(it.frist || '–', 'Frist', 'frist-zelle'));
+          tb.appendChild(tr);
+          var nr = el('tr', 'notiz');
+          var nz = el('td', null);
+          nz.setAttribute('colspan', '5');
+          nz.appendChild(el('p', 'status', statusText(it.status)));
+          nz.appendChild(el('p', null, it.text));
+          if (it.unsicher) { nz.appendChild(el('p', null, it.unsicher)); }
+          nr.appendChild(nz);
+          tb.appendChild(nr);
+          ta.table.appendChild(tb);
+        });
+        if (hatSumme) {
+          var tf = el('tfoot', null);
+          var fr = el('tr', null);
+          fr.appendChild(th('Insgesamt noch offen', 'row'));
+          fr.lastChild.setAttribute('data-label', 'Leistung');
+          fr.appendChild(td(fmt(sumJahr), 'Jahresbetrag 2026', 'zahl'));
+          fr.appendChild(td(fmt(sumGen), 'bereits genutzt', 'zahl'));
+          fr.appendChild(td(fmt(sumRest), 'noch offen', 'zahl' + (sumRest > 0 ? ' rest' : '')));
+          fr.appendChild(td('', null, null));
+          tf.appendChild(fr);
+          ta.table.appendChild(tf);
         }
-        card.appendChild(el('p', null, it.text));
-        if (it.unsicher) { card.appendChild(el('p', 'unsicher', it.unsicher)); }
-        sa.appendChild(card);
-      });
+        sa.appendChild(ta.wrap);
+      }
       wrap.appendChild(sa);
 
-      /* (b) */
+      /* (b) Ab 2027 voraussichtlich (Entwurf) */
       var sb = el('section', 'erg-block');
       sb.setAttribute('aria-labelledby', 'erg-b');
-      var hb = el('h3', null, 'Ab 2027 voraussichtlich');
+      var hb = el('h3', null, 'Ab 2027 voraussichtlich (Entwurf)');
       hb.id = 'erg-b';
       sb.appendChild(hb);
       sb.appendChild(el('p', 'klein', 'Vergleich 2026 (geltendes Recht) mit 2027 laut Gesetzentwurf (Stand 14.11.2026). Die 2027-Werte sind nicht beschlossen.'));
-      var ul = el('ul', 'vergleich');
-      r.vergleich.forEach(function (z) {
-        var li = el('li', 'vl');
-        var k = el('div', 'karte-kopf');
-        k.appendChild(el('h4', 'karte-titel', z.leistung));
-        k.appendChild(chip(z.status));
-        li.appendChild(k);
-        var dl = el('dl', 'vl-werte');
-        function paar(dt, dd, cls) {
-          var g = el('div', cls || 'vl-paar');
-          g.appendChild(el('dt', null, dt));
-          g.appendChild(el('dd', null, dd));
-          dl.appendChild(g);
-        }
-        paar('2026 (geltend)', z.heute);
-        paar('Ab 2027 (Entwurf)', z.ab2027);
-        if (z.diff) { paar('Veränderung', z.diff); }
-        li.appendChild(dl);
-        if (z.hinweis) { li.appendChild(el('p', 'klein', z.hinweis)); }
-        ul.appendChild(li);
-      });
-      sb.appendChild(ul);
+      function vergleichsTabelle(caption, liste) {
+        var tbl = tabelle(caption, [['Leistung', null], ['2026 (geltend)', null], ['Ab 2027 (Entwurf)', null], ['Veränderung', null]], 'tabelle-klein');
+        var tbody = el('tbody', null);
+        liste.forEach(function (z) {
+          var tr = el('tr', null);
+          var h = th(z.leistung, 'row');
+          h.setAttribute('data-label', 'Leistung');
+          if (z.status === 'offen') { h.appendChild(el('span', 'status-offen', 'Noch offen')); }
+          tr.appendChild(h);
+          tr.appendChild(td(z.heute, '2026 (geltend)'));
+          tr.appendChild(td(z.ab2027, 'Ab 2027 (Entwurf)'));
+          tr.appendChild(td(z.diff || '–', 'Veränderung', 'zahl'));
+          tbody.appendChild(tr);
+        });
+        tbl.table.appendChild(tbody);
+        tbl.table.firstChild.className = 'sr-only';
+        return tbl.wrap;
+      }
+      var sichtbar = r.vergleich.filter(function (z) { return z.diff || z.id === 'R10'; });
+      var weitere = r.vergleich.filter(function (z) { return !(z.diff || z.id === 'R10'); });
+      if (sichtbar.length) { sb.appendChild(vergleichsTabelle('Wichtigste Änderungen 2026 und 2027', sichtbar)); }
       r.hinweise.forEach(function (h) { sb.appendChild(el('p', null, h)); });
+      if (weitere.length || r.vergleich.some(function (z) { return z.hinweis; })) {
+        var det = el('details', 'mehr');
+        var sum = el('summary', null);
+        sum.appendChild(el('span', null, 'Alle Änderungen ansehen'));
+        sum.appendChild(svgPlusMinus());
+        det.appendChild(sum);
+        var inh = el('div', null);
+        if (weitere.length) { inh.appendChild(vergleichsTabelle('Weitere Leistungen 2026 und 2027', weitere)); }
+        var dl = el('dl', null);
+        r.vergleich.forEach(function (z) {
+          if (!z.hinweis) { return; }
+          dl.appendChild(el('dt', null, z.leistung));
+          dl.appendChild(el('dd', null, z.hinweis));
+        });
+        inh.appendChild(dl);
+        det.appendChild(inh);
+        sb.appendChild(det);
+      }
+      wrap.appendChild(sb);
 
-      /* (c) */
+      /* (c) Was Sie jetzt tun können */
       var sc = el('section', 'erg-block');
       sc.setAttribute('aria-labelledby', 'erg-c');
-      var hc = el('h3', null, 'Nächste Schritte');
+      var hc = el('h3', null, 'Was Sie jetzt tun können');
       hc.id = 'erg-c';
       sc.appendChild(hc);
       var ol = el('ol', 'schritte');
       r.schritte.forEach(function (s) { ol.appendChild(el('li', null, s)); });
       sc.appendChild(ol);
       wrap.appendChild(sc);
-      wrap.appendChild(sb);
 
-      /* Anzeigen */
-      if (r.ads.length) {
-        var sd = el('section', 'erg-block');
-        sd.setAttribute('aria-label', 'Passende Unterstützung (Anzeigen)');
-        r.ads.forEach(function (id) {
-          var b = adBox(id);
-          if (b) { sd.appendChild(b); }
-        });
-        wrap.appendChild(sd);
-      }
+      /* Beiblatt (Anzeigen) */
+      if (r.ads.length) { wrap.appendChild(beiblatt(r.ads)); }
 
       wrap.appendChild(el('p', 'klein', r.fusszeile));
       out.appendChild(wrap);
@@ -743,7 +846,7 @@
         fehlerZeigen(r.fehler);
         return;
       }
-      render(r);
+      render(r, lies());
       var titel = $('ergebnis-titel');
       if (titel) {
         if (titel.scrollIntoView) { titel.scrollIntoView(); }
