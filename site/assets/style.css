@@ -368,6 +368,9 @@ details[open] > summary .chev { transform: rotate(180deg); }
 .aend-kopf { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 20px; margin-bottom: 18px; }
 .aend-kopf h2 { margin-bottom: 8px; }
 .t-intro { margin: 0; max-width: 620px; font-size: 17px; color: var(--smoke); }
+.pg-wahl { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.pg-wahl[hidden] { display: none; }
+.pg-wahl-label { font-size: 17px; font-weight: 700; color: var(--ink); }
 .umschalter { display: flex; gap: 4px; padding: 4px; background: var(--mist); border-radius: var(--r-ctl); }
 .umschalter button { min-width: 52px; min-height: 48px; border: 0; border-radius: 11px; background: transparent; color: var(--smoke); font-size: 18px; font-weight: 700; cursor: pointer; }
 .umschalter button:hover { color: var(--plum); }

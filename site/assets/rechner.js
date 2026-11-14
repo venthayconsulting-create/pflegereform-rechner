@@ -549,7 +549,7 @@
       var body = tab.querySelector('tbody');
       var buttons = gruppe.querySelectorAll('button');
       var label = $('tabelle-pg');
-      gruppe.hidden = false;
+      (gruppe.closest('.pg-wahl') || gruppe).hidden = false;
       function setze(pg) {
         Array.prototype.forEach.call(buttons, function (b) {
           b.setAttribute('aria-pressed', b.getAttribute('data-pg') === String(pg) ? 'true' : 'false');
