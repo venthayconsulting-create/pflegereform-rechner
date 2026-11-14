@@ -138,15 +138,15 @@ main { display: block; }
 .nur-gross { display: none; }
 @media (min-width: 600px) and (max-width: 959px) { .blatt { max-width: 640px; } }
 @media (min-width: 960px) {
-  .hero { max-width: var(--max); margin: 0 auto 136px; padding: 8px var(--rand) 0; }
+  .hero { max-width: var(--max); margin: 0 auto 200px; padding: 8px var(--rand) 0; }
   .hero-foto { height: 560px; max-height: none; border-radius: 28px; }
-  .hero-foto img { object-position: 60% 30%; }
+  .hero-foto img { object-position: 60% 90%; }
   .blatt {
-    position: absolute; left: calc(var(--rand) + 40px); bottom: -56px; margin: 0; width: 500px;
+    position: absolute; left: calc(var(--rand) + 32px); bottom: -128px; margin: 0; width: 460px;
     padding: 40px 40px 36px; border-radius: var(--r-flaeche); gap: 20px;
     box-shadow: 0 2px 4px rgba(43,33,48,.06), 0 24px 48px -16px rgba(43,33,48,.24);
   }
-  .blatt h1 { font-size: 46px; line-height: 1.08; }
+  .blatt h1 { font-size: 42px; line-height: 1.08; }
   .einstieg { font-size: 1rem; }
   .hero-aktion .btn { min-height: 60px; }
   .zusage { font-size: 16px; gap: 10px; }
