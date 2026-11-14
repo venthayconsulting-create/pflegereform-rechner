@@ -27,14 +27,14 @@ services:
     labels:
       - traefik.enable=true
       - traefik.docker.network=root_default
-      - traefik.http.routers.pflegerechner.rule=Host(`pflegereform-rechner.de`) || Host(`www.pflegereform-rechner.de`)
-      - traefik.http.routers.pflegerechner.entrypoints=web,websecure
-      - traefik.http.routers.pflegerechner.tls=true
-      - traefik.http.routers.pflegerechner.tls.certresolver=mytlschallenge
+      - traefik.http.routers.pflegerechner-v2.rule=Host(`pflegereform-rechner.de`) || Host(`www.pflegereform-rechner.de`)
+      - traefik.http.routers.pflegerechner-v2.entrypoints=web,websecure
+      - traefik.http.routers.pflegerechner-v2.tls=true
+      - traefik.http.routers.pflegerechner-v2.tls.certresolver=mytlschallenge
       - traefik.http.services.pflegerechner.loadbalancer.server.port=80
       - traefik.http.middlewares.pflegerechner-hsts.headers.STSSeconds=31536000
       - traefik.http.middlewares.pflegerechner-hsts.headers.forceSTSHeader=true
-      - traefik.http.routers.pflegerechner.middlewares=pflegerechner-hsts@docker
+      - traefik.http.routers.pflegerechner-v2.middlewares=pflegerechner-hsts@docker
 networks:
   root_default:
     external: true
