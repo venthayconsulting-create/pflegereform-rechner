@@ -523,11 +523,16 @@
       verhinderungs_kurzzeitpflege_2026_genutzt_eur: ['verhinderung', 'err-verhinderung']
     };
 
+    function setzeText(p, text) {
+      var t = p.querySelector('.et');
+      (t || p).textContent = text;
+    }
+
     function feldLeeren(k) {
       var m = feldMap[k];
       if (!m) { return; }
       var p = $(m[1]);
-      if (p) { p.hidden = true; p.textContent = ''; }
+      if (p) { p.hidden = true; setzeText(p, ''); }
       var inp = $(m[0]);
       if (inp) { inp.removeAttribute('aria-invalid'); }
       if (k === 'pflegegrad' || k === 'versorgung' || k === 'antrag_gestellt') {
@@ -544,7 +549,7 @@
     function feldFehler(k, text) {
       var m = feldMap[k];
       var p = $(m[1]);
-      p.textContent = text;
+      setzeText(p, text);
       p.hidden = false;
       var inp = $(m[0]);
       if (inp) { inp.setAttribute('aria-invalid', 'true'); }
@@ -573,7 +578,9 @@
       });
       if (sum) {
         sum.textContent = '';
-        sum.appendChild(el('p', null, n === 1 ? 'Eine Angabe fehlt noch oder passt nicht:' : n + ' Angaben fehlen noch oder passen nicht:'));
+        var kopfP = el('p', null, n === 1 ? 'Eine Angabe fehlt noch oder passt nicht:' : n + ' Angaben fehlen noch oder passen nicht:');
+        kopfP.insertBefore(svgFehler(), kopfP.firstChild);
+        sum.appendChild(kopfP);
         sum.appendChild(ul);
         sum.hidden = false;
       }
@@ -603,17 +610,20 @@
       if (n && map[n]) { feldLeeren(map[n]); }
     });
 
-    function svgPfeil() {
+    function svgFehler() {
       var ns = 'http://www.w3.org/2000/svg';
       var svg = doc.createElementNS(ns, 'svg');
-      svg.setAttribute('class', 'pfeil');
-      svg.setAttribute('viewBox', '0 0 16 16');
-      svg.setAttribute('width', '16');
-      svg.setAttribute('height', '16');
+      svg.setAttribute('class', 'fehler-icon');
+      svg.setAttribute('viewBox', '0 0 20 20');
+      svg.setAttribute('width', '20');
+      svg.setAttribute('height', '20');
       svg.setAttribute('aria-hidden', 'true');
       svg.setAttribute('focusable', 'false');
+      var c = doc.createElementNS(ns, 'circle');
+      c.setAttribute('cx', '10'); c.setAttribute('cy', '10'); c.setAttribute('r', '8.25');
       var p = doc.createElementNS(ns, 'path');
-      p.setAttribute('d', 'M2 8h11M9 3.5 13.5 8 9 12.5');
+      p.setAttribute('d', 'M10 5.5v5.5M10 14v.5');
+      svg.appendChild(c);
       svg.appendChild(p);
       return svg;
     }
@@ -634,54 +644,30 @@
       return svg;
     }
 
-    /* Beiblatt mit Anzeigen: Kopf h3, Einträge h4 */
-    function beiblatt(ids) {
-      var box = el('aside', 'beiblatt');
-      box.setAttribute('aria-labelledby', 'beiblatt-kopf');
-      var kopf = el('h3', 'beiblatt-kopf', 'Anzeige · Partnerangebote');
-      kopf.id = 'beiblatt-kopf';
+    /* Anzeigenblock: Kopf h3, Einträge h4 */
+    function anzeigen(ids) {
+      var box = el('aside', 'anzeigen');
+      box.setAttribute('aria-labelledby', 'anzeigen-kopf');
+      box.appendChild(el('p', 'anz-label', 'Anzeige'));
+      var kopf = el('h3', 'anzeigen-kopf', 'Unterstützung, die jetzt passt');
+      kopf.id = 'anzeigen-kopf';
       box.appendChild(kopf);
-      box.appendChild(el('p', 'beiblatt-hinweis', 'Wir erhalten ggf. eine Vergütung. Für Sie entstehen keine Mehrkosten.'));
+      box.appendChild(el('p', 'anz-hinweis', 'Wir erhalten ggf. eine Vergütung, für Sie entstehen keine Mehrkosten.'));
       ids.forEach(function (id) {
         var a = ADS[id];
         if (!a) { return; }
         var row = el('div', 'eintrag');
         row.appendChild(el('h4', 'eintrag-titel', a.titel));
         row.appendChild(el('p', null, a.text));
-        var link = el('a', 'textlink');
+        var link = el('a', 'btn btn-sek');
         link.href = a.href;
         link.rel = 'sponsored nofollow noopener';
-        link.appendChild(doc.createTextNode(a.cta + ' '));
-        link.appendChild(el('span', 'anz', '(Anzeige)'));
-        link.appendChild(svgPfeil());
+        link.appendChild(doc.createTextNode(a.cta));
+        link.appendChild(el('span', 'sr-only', ' (Anzeige)'));
         row.appendChild(link);
         box.appendChild(row);
       });
       return box;
-    }
-
-    /* Tabellen-Bausteine */
-    function th(text, scope, cls) {
-      var c = el('th', cls || null, text);
-      c.setAttribute('scope', scope);
-      return c;
-    }
-    function td(text, label, cls) {
-      var c = el('td', cls || null, text);
-      if (label) { c.setAttribute('data-label', label); }
-      return c;
-    }
-    function tabelle(caption, heads, extraCls) {
-      var wrapT = el('div', 'tabelle-wrap');
-      var t = el('table', 'tabelle' + (extraCls ? ' ' + extraCls : ''));
-      t.appendChild(el('caption', null, caption));
-      var tr = el('tr', null);
-      heads.forEach(function (h) { tr.appendChild(th(h[0], 'col', h[1])); });
-      var thead = el('thead', null);
-      thead.appendChild(tr);
-      t.appendChild(thead);
-      wrapT.appendChild(t);
-      return { wrap: wrapT, table: t };
     }
 
     function datumHeute() {
@@ -698,23 +684,33 @@
     function render(r, eing) {
       out.textContent = '';
       var wrap = el('div', 'ergebnis-inhalt');
-      var h2 = el('h2', null, 'Ihre Übersicht');
+
+      /* Einstieg als Satz */
+      var sumJahr = 0, sumGen = 0, sumRest = 0, hatSumme = false;
+      r.bis.forEach(function (it) {
+        if (it.jahr !== undefined) {
+          hatSumme = true;
+          sumJahr += it.jahr; sumGen += it.genutzt; sumRest += it.betrag;
+        }
+      });
+      var h2 = el('h2', 'ergebnis-satz');
       h2.id = 'ergebnis-titel';
       h2.tabIndex = -1;
+      if (hatSumme && sumRest > 0) {
+        h2.appendChild(doc.createTextNode('Bis zum 31. Dezember können Sie noch'));
+        h2.appendChild(el('span', 'betrag', fmt(sumRest)));
+        h2.appendChild(doc.createTextNode('abrufen.'));
+      } else if (hatSumme) {
+        h2.appendChild(doc.createTextNode('Bei diesen Leistungen ist nach Ihren Angaben nichts mehr offen.'));
+      } else {
+        h2.appendChild(doc.createTextNode('Ihre Übersicht'));
+      }
       wrap.appendChild(h2);
-      wrap.appendChild(el('p', 'ergebnis-meta', pgText(eing.pflegegrad) + ' · ' + (eing.versorgung === 'heim' ? 'Pflegeheim' : 'häusliche Pflege') + ' · berechnet am ' + datumHeute()));
+      wrap.appendChild(el('p', 'ergebnis-meta', 'Berechnet für ' + pgText(eing.pflegegrad) + ', ' + (eing.versorgung === 'heim' ? 'Pflegeheim' : 'häusliche Pflege') + ', am ' + datumHeute() + '.'));
       wrap.appendChild(el('p', 'hinweis', r.kopfzeile));
       if (r.beruhigung) { wrap.appendChild(el('p', 'beruhigung', r.beruhigung)); }
 
-      var sprung = el('p', 'sprung');
-      [['#erg-a', 'Fristen 2026'], ['#erg-b', 'Vergleich 2027'], ['#erg-c', 'Was Sie jetzt tun können']].forEach(function (x) {
-        var a = el('a', null, x[1]);
-        a.href = x[0];
-        sprung.appendChild(a);
-      });
-      wrap.appendChild(sprung);
-
-      /* (a) Fristen 2026 als Tabelle */
+      /* (a) Leistungen mit Frist 2026 */
       var sa = el('section', 'erg-block');
       sa.setAttribute('aria-labelledby', 'erg-a');
       var ha = el('h3', null, 'Bis 31.12.2026 noch nutzen');
@@ -723,81 +719,66 @@
       if (!r.bis.length) {
         sa.appendChild(el('p', null, 'Aus Ihren Angaben ergeben sich keine betragsbezogenen Fristen zum 31.12.2026. Das ersetzt keine Auskunft Ihrer Pflegekasse.'));
       } else {
-        var ta = tabelle('Leistungen und Fristen 2026', [['Leistung', null], ['Jahresbetrag 2026', 'zahl'], ['bereits genutzt', 'zahl'], ['noch offen', 'zahl'], ['Frist', null]]);
-        ta.table.firstChild.className = 'sr-only';
-        var sumJahr = 0, sumGen = 0, sumRest = 0, hatSumme = false;
+        var liste = el('ul', 'leistungen');
         r.bis.forEach(function (it) {
-          var tb = el('tbody', null);
-          var tr = el('tr', 'hat-notiz');
-          tr.appendChild(th(it.titel, 'row'));
-          tr.lastChild.setAttribute('data-label', 'Leistung');
+          var li = el('li', null);
+          var kopfZ = el('div', 'l-kopf');
+          kopfZ.appendChild(el('h4', 'l-name', it.titel));
+          var bt = it.jahr !== undefined ? fmt(it.betrag) : (it.betragText || '');
+          if (bt) { kopfZ.appendChild(el('p', 'l-betrag', bt)); }
+          li.appendChild(kopfZ);
           if (it.jahr !== undefined) {
-            hatSumme = true;
-            sumJahr += it.jahr; sumGen += it.genutzt; sumRest += it.betrag;
-            tr.appendChild(td(fmt(it.jahr), 'Jahresbetrag 2026', 'zahl'));
-            tr.appendChild(td(fmt(it.genutzt), 'bereits genutzt', 'zahl'));
-            tr.appendChild(td(fmt(it.betrag), 'noch offen', 'zahl' + (it.betrag > 0 ? ' rest' : '')));
-          } else {
-            tr.appendChild(td(it.betragText || '–', 'Jahresbetrag 2026', it.betragText ? null : 'zahl'));
-            tr.appendChild(td('–', 'bereits genutzt', 'zahl'));
-            tr.appendChild(td('–', 'noch offen', 'zahl'));
+            li.appendChild(el('p', 'l-klein', 'Jahresbetrag ' + fmt(it.jahr) + ', bereits genutzt ' + fmt(it.genutzt) + '.'));
           }
-          tr.appendChild(td(it.frist || '–', 'Frist', 'frist-zelle'));
-          tb.appendChild(tr);
-          var nr = el('tr', 'notiz');
-          var nz = el('td', null);
-          nz.setAttribute('colspan', '5');
-          nz.appendChild(el('p', 'status', statusText(it.status)));
-          nz.appendChild(el('p', null, it.text));
-          if (it.unsicher) { nz.appendChild(el('p', null, it.unsicher)); }
-          nr.appendChild(nz);
-          tb.appendChild(nr);
-          ta.table.appendChild(tb);
+          var tp = el('p', null);
+          tp.appendChild(el('strong', null, 'So nutzen Sie es: '));
+          tp.appendChild(doc.createTextNode(it.text));
+          li.appendChild(tp);
+          if (it.unsicher) { li.appendChild(el('p', 'l-klein', it.unsicher)); }
+          if (it.frist) {
+            var fp = el('p', 'l-klein');
+            fp.appendChild(el('strong', null, 'Frist: '));
+            fp.appendChild(doc.createTextNode(it.frist));
+            li.appendChild(fp);
+          }
+          li.appendChild(el('p', 'l-klein', statusText(it.status) + '.'));
+          liste.appendChild(li);
         });
-        if (hatSumme) {
-          var tf = el('tfoot', null);
-          var fr = el('tr', null);
-          fr.appendChild(th('Insgesamt noch offen', 'row'));
-          fr.lastChild.setAttribute('data-label', 'Leistung');
-          fr.appendChild(td(fmt(sumJahr), 'Jahresbetrag 2026', 'zahl'));
-          fr.appendChild(td(fmt(sumGen), 'bereits genutzt', 'zahl'));
-          fr.appendChild(td(fmt(sumRest), 'noch offen', 'zahl' + (sumRest > 0 ? ' rest' : '')));
-          fr.appendChild(td('', null, null));
-          tf.appendChild(fr);
-          ta.table.appendChild(tf);
-        }
-        sa.appendChild(ta.wrap);
+        sa.appendChild(liste);
       }
       wrap.appendChild(sa);
 
       /* (b) Ab 2027 voraussichtlich (Entwurf) */
       var sb = el('section', 'erg-block');
       sb.setAttribute('aria-labelledby', 'erg-b');
-      var hb = el('h3', null, 'Ab 2027 voraussichtlich (Entwurf)');
+      var hb = el('h3', null, 'Ab 2027 voraussichtlich');
       hb.id = 'erg-b';
       sb.appendChild(hb);
       sb.appendChild(el('p', 'klein', 'Vergleich 2026 (geltendes Recht) mit 2027 laut Gesetzentwurf (Stand 14.11.2026). Die 2027-Werte sind nicht beschlossen.'));
-      function vergleichsTabelle(caption, liste) {
-        var tbl = tabelle(caption, [['Leistung', null], ['2026 (geltend)', null], ['Ab 2027 (Entwurf)', null], ['Veränderung', null]], 'tabelle-klein');
-        var tbody = el('tbody', null);
+      function vergleichsListe(liste) {
+        var ul = el('ul', 'vergleich');
         liste.forEach(function (z) {
-          var tr = el('tr', null);
-          var h = th(z.leistung, 'row');
-          h.setAttribute('data-label', 'Leistung');
-          if (z.status === 'offen') { h.appendChild(el('span', 'status-offen', 'Noch offen')); }
-          tr.appendChild(h);
-          tr.appendChild(td(z.heute, '2026 (geltend)'));
-          tr.appendChild(td(z.ab2027, 'Ab 2027 (Entwurf)'));
-          tr.appendChild(td(z.diff || '–', 'Veränderung', 'zahl'));
-          tbody.appendChild(tr);
+          var li = el('li', null);
+          li.appendChild(el('h4', 'v-name', z.leistung));
+          var sp = el('div', 'v-spalten');
+          var c1 = el('p', null);
+          c1.appendChild(el('span', 'l', 'Heute'));
+          c1.appendChild(doc.createTextNode(z.heute));
+          var c2 = el('p', null);
+          c2.appendChild(el('span', 'l', 'Ab 2027 (Entwurf)'));
+          c2.appendChild(doc.createTextNode(z.ab2027));
+          sp.appendChild(c1);
+          sp.appendChild(c2);
+          li.appendChild(sp);
+          if (z.diff) { li.appendChild(el('p', 'l-klein', 'Veränderung: ' + z.diff)); }
+          if (z.status === 'offen') { li.appendChild(el('p', 'l-klein', 'Noch offen.')); }
+          ul.appendChild(li);
         });
-        tbl.table.appendChild(tbody);
-        tbl.table.firstChild.className = 'sr-only';
-        return tbl.wrap;
+        return ul;
       }
       var sichtbar = r.vergleich.filter(function (z) { return z.diff || z.id === 'R10'; });
       var weitere = r.vergleich.filter(function (z) { return !(z.diff || z.id === 'R10'); });
-      if (sichtbar.length) { sb.appendChild(vergleichsTabelle('Wichtigste Änderungen 2026 und 2027', sichtbar)); }
+      if (sichtbar.length) { sb.appendChild(vergleichsListe(sichtbar)); }
       r.hinweise.forEach(function (h) { sb.appendChild(el('p', null, h)); });
       if (weitere.length || r.vergleich.some(function (z) { return z.hinweis; })) {
         var det = el('details', 'mehr');
@@ -806,7 +787,7 @@
         sum.appendChild(svgPlusMinus());
         det.appendChild(sum);
         var inh = el('div', null);
-        if (weitere.length) { inh.appendChild(vergleichsTabelle('Weitere Leistungen 2026 und 2027', weitere)); }
+        if (weitere.length) { inh.appendChild(vergleichsListe(weitere)); }
         var dl = el('dl', null);
         r.vergleich.forEach(function (z) {
           if (!z.hinweis) { return; }
@@ -830,8 +811,8 @@
       sc.appendChild(ol);
       wrap.appendChild(sc);
 
-      /* Beiblatt (Anzeigen) */
-      if (r.ads.length) { wrap.appendChild(beiblatt(r.ads)); }
+      /* Anzeigen */
+      if (r.ads.length) { wrap.appendChild(anzeigen(r.ads)); }
 
       wrap.appendChild(el('p', 'klein', r.fusszeile));
       out.appendChild(wrap);
