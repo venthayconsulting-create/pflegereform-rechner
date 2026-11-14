@@ -280,6 +280,7 @@
         id: 'R8', leistung: 'Pflegegeld (2027: Entlastungsbudget)',
         heute: fmt(pgg) + ' je Monat', ab2027: fmt(ent) + ' je Monat',
         diff: fmtSigned(ent - pgg) + ' je Monat', status: 'entwurf',
+        kurz: { name: 'Pflegegeld', einheit: 'im Monat', heute: fmt(pgg), ab: fmt(ent) },
         hinweis: 'Daraus sollen künftig auch Pflegehilfsmittel zum Verbrauch bezahlt werden. Das Entlastungsbudget ist also nicht vollständig zusätzliches Geld.'
       });
       var sach = D.sachleistungsbudget2027[pg];
@@ -288,6 +289,7 @@
         id: 'sach', leistung: 'Pflegesachleistung (2027: Sachleistungsbudget)',
         heute: fmt(sach26) + ' je Monat', ab2027: fmt(sach) + ' je Monat',
         diff: fmtSigned(sach - sach26) + ' je Monat', status: 'entwurf',
+        kurz: { name: 'Pflegesachleistung', einheit: 'im Monat', heute: fmt(sach26), ab: fmt(sach) },
         hinweis: 'Die Umwidmung von bis zu 40 % der Sachleistung für Alltagsunterstützung soll entfallen.'
       });
       var sr = e.unter25 ? D.sozialraum2027Unter25 : D.sozialraum2027;
@@ -296,6 +298,7 @@
         id: 'R9', leistung: 'Entlastungsbetrag (2027: Sozialraumbudget)',
         heute: fmt(D.entlastung2026Monat) + ' je Monat', ab2027: fmt(sr) + ' je Monat' + (e.unter25 ? ' (unter 25 Jahren)' : ' (unter 25 Jahren: ' + fmt(D.sozialraum2027Unter25) + ')'),
         diff: fmtSigned(sr - D.entlastung2026Monat) + ' je Monat', status: 'entwurf',
+        kurz: { name: 'Entlastungsbetrag', einheit: 'im Monat', heute: fmt(D.entlastung2026Monat), ab: fmt(sr) },
         hinweis: 'Das Sozialraumbudget lässt sich nach dem Entwurf nur monatlich nutzen und nicht ansparen. Erstattung gegen Beleg.'
       });
     }
@@ -307,6 +310,7 @@
         heute: 'bis ' + fmt(D.jahresbetragVK2026) + ' je Kalenderjahr (gemeinsamer Jahresbetrag)',
         ab2027: 'Überbrückungsbudget bis ' + fmt(D.ueberbrueckung2027Jahr) + ' je Kalenderjahr',
         diff: '', status: 'entwurf',
+        kurz: { name: 'Verhinderungs- und Kurzzeitpflege', einheit: 'im Jahr', heute: 'bis ' + fmt(D.jahresbetragVK2026), ab: 'bis ' + fmt(D.ueberbrueckung2027Jahr) },
         hinweis: 'Für akute Notsituationen. Verhinderungspflege entfällt als eigene Leistung, der gemeinsame Jahresbetrag ebenfalls. Die beiden Beträge sind nicht eins zu eins vergleichbar, weil geplante Abwesenheit künftig über das Sachleistungs- oder Entlastungsbudget gedeckt werden soll.'
       });
     }
@@ -317,6 +321,7 @@
         heute: fmt(D.entlastung2026Monat) + ' je Monat (' + fmt(D.entlastung2026Jahr) + ' je Jahr)',
         ab2027: 'entfällt',
         diff: fmtSigned(-D.entlastung2026Monat) + ' je Monat', status: 'entwurf',
+        kurz: { name: 'Entlastungsbetrag', einheit: 'im Monat', heute: fmt(D.entlastung2026Monat), ab: 'entfällt' },
         hinweis: 'Als Ersatz ist eine Pflegebegleitung zu Hause vorgesehen, die laut Entwurf erst ab 01.01.2029 gelten soll.'
       });
       vergleich.push({
@@ -451,54 +456,162 @@
     };
   }
 
+  /* ---------- Tabelle „Was sich 2027 ändern soll“ (Pflegegrad 2 bis 5) ---------- */
+  function tabelle(pg) {
+    return [
+      { id: 'pflegegeld', name: 'Pflegegeld', note: 'heißt 2027 Entlastungsbudget', einheit: 'im Monat', heute: fmt(D.pflegegeld2026[pg]), ab: fmt(D.entlastungsbudget2027[pg]) },
+      { id: 'sach', name: 'Pflegesachleistung', note: 'heißt 2027 Sachleistungsbudget', einheit: 'im Monat', heute: fmt(D.sachleistung2026[pg]), ab: fmt(D.sachleistungsbudget2027[pg]) },
+      { id: 'entlastung', name: 'Entlastungsbetrag', note: 'heißt 2027 Sozialraumbudget, unter 25 Jahren: ' + fmt(D.sozialraum2027Unter25), einheit: 'im Monat', heute: fmt(D.entlastung2026Monat), ab: fmt(D.sozialraum2027) },
+      { id: 'vk', name: 'Verhinderungs- und Kurzzeitpflege', note: 'wird 2027 zum Überbrückungsbudget', einheit: 'im Jahr', heute: 'bis ' + fmt(D.jahresbetragVK2026), ab: 'bis ' + fmt(D.ueberbrueckung2027Jahr) },
+      { id: 'hilfsmittel', name: 'Pflegehilfsmittel', note: 'z. B. Handschuhe, Desinfektion', einheit: 'im Monat', heute: 'bis ' + fmt(D.hilfsmittel2026Monat), ab: 'aus dem Budget', abOhneEinheit: true }
+    ];
+  }
+
+  /* Sätze eines Textes (ohne Lookbehind, damit auch ältere Browser den Code laden). */
+  function saetze(text) {
+    return String(text).replace(/\.\s+(?=[A-ZÄÖÜ])/g, '.\u0001').split('\u0001');
+  }
+
   /* ---------- Oberfläche ---------- */
   function initUI(doc) {
-    var tage = doc.getElementById('tage-rest');
-    if (tage) {
-      var jetzt = new Date();
-      var rest = Math.round((Date.UTC(2026, 11, 31) - Date.UTC(jetzt.getFullYear(), jetzt.getMonth(), jetzt.getDate())) / 86400000);
-      tage.textContent = rest > 1 ? rest + ' Tage' : rest === 1 ? '1 Tag' : rest === 0 ? 'Heute ist der letzte Tag' : 'Frist abgelaufen';
-    }
-    var form = doc.getElementById('rechner-form');
-    var out = doc.getElementById('ergebnis');
-    if (!form || !out) { return; }
-
+    var ns = 'http://www.w3.org/2000/svg';
     function $(id) { return doc.getElementById(id); }
-    function radio(name) {
-      var el = form.querySelector('input[name="' + name + '"]:checked');
-      return el ? el.value : '';
-    }
     function el(tag, cls, text) {
       var n = doc.createElement(tag);
       if (cls) { n.className = cls; }
       if (text !== undefined && text !== null) { n.textContent = text; }
       return n;
     }
-    function statusText(status) {
-      var map = {
-        geltend: 'Geltendes Recht',
-        entwurf: 'Laut Gesetzentwurf (Stand 14.11.2026)',
-        offen: 'Noch offen',
-        erledigt: 'Nach Ihren Angaben erledigt'
-      };
-      return map[status] || map.offen;
+    var ICONS = {
+      links: { vb: 18, d: 'M11 4L6 9l5 5' },
+      rechts: { vb: 18, d: 'M7 4l5 5-5 5' },
+      runter: { vb: 20, d: 'M5 7.5l5 5 5-5' },
+      pfeil: { vb: 16, d: 'M3 8h9M8.5 4.5L12 8l-3.5 3.5' },
+      drucken: { vb: 20, d: 'M6 8V3h8v5M6 15H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-2M6 12h8v5H6z' }
+    };
+    function icon(name, cls, size) {
+      var ic = ICONS[name];
+      var svg = doc.createElementNS(ns, 'svg');
+      svg.setAttribute('class', 'ic' + (cls ? ' ' + cls : ''));
+      svg.setAttribute('viewBox', '0 0 ' + ic.vb + ' ' + ic.vb);
+      svg.setAttribute('width', String(size || ic.vb));
+      svg.setAttribute('height', String(size || ic.vb));
+      svg.setAttribute('aria-hidden', 'true');
+      svg.setAttribute('focusable', 'false');
+      var p = doc.createElementNS(ns, 'path');
+      p.setAttribute('d', ic.d);
+      svg.appendChild(p);
+      return svg;
+    }
+    function svgFehler() {
+      var svg = doc.createElementNS(ns, 'svg');
+      svg.setAttribute('class', 'fehler-icon');
+      svg.setAttribute('viewBox', '0 0 20 20');
+      svg.setAttribute('width', '20');
+      svg.setAttribute('height', '20');
+      svg.setAttribute('aria-hidden', 'true');
+      svg.setAttribute('focusable', 'false');
+      var c = doc.createElementNS(ns, 'circle');
+      c.setAttribute('cx', '10'); c.setAttribute('cy', '10'); c.setAttribute('r', '8.25');
+      var p = doc.createElementNS(ns, 'path');
+      p.setAttribute('d', 'M10 5.5v5.5M10 14v.5');
+      svg.appendChild(c);
+      svg.appendChild(p);
+      return svg;
     }
 
-    function sichtbarkeit() {
+    /* ======== Tabelle mit Pflegegrad-Umschalter ======== */
+    function tabellenZeile(z) {
+      var tr = el('tr');
+      var th = el('th');
+      th.scope = 'row';
+      th.appendChild(el('span', 't-name', z.name));
+      var note = el('span', 't-note');
+      note.appendChild(el('span', 't-einheit', z.einheit + ', '));
+      note.appendChild(doc.createTextNode(z.note));
+      th.appendChild(note);
+      tr.appendChild(th);
+      var td1 = el('td', 't-heute');
+      td1.appendChild(doc.createTextNode(z.heute));
+      td1.appendChild(el('span', 'u', ' ' + z.einheit));
+      tr.appendChild(td1);
+      var td2 = el('td', 't-neu');
+      td2.appendChild(icon('pfeil', 't-pfeil'));
+      td2.appendChild(doc.createTextNode(z.ab));
+      if (!z.abOhneEinheit) { td2.appendChild(el('span', 'u', ' ' + z.einheit)); }
+      tr.appendChild(td2);
+      return tr;
+    }
+    function initTabelle() {
+      var tab = $('vergleich-tabelle');
+      var gruppe = $('pg-umschalter');
+      if (!tab || !gruppe) { return; }
+      var body = tab.querySelector('tbody');
+      var buttons = gruppe.querySelectorAll('button');
+      var label = $('tabelle-pg');
+      gruppe.hidden = false;
+      function setze(pg) {
+        Array.prototype.forEach.call(buttons, function (b) {
+          b.setAttribute('aria-pressed', b.getAttribute('data-pg') === String(pg) ? 'true' : 'false');
+        });
+        body.textContent = '';
+        tabelle(pg).forEach(function (z) { body.appendChild(tabellenZeile(z)); });
+        if (label) { label.textContent = String(pg); }
+      }
+      Array.prototype.forEach.call(buttons, function (b) {
+        b.addEventListener('click', function () { setze(Number(b.getAttribute('data-pg'))); });
+      });
+    }
+    initTabelle();
+
+    /* ======== Rechner in Schritten ======== */
+    var form = $('rechner-form');
+    var out = $('ergebnis');
+    var sec = $('rechner');
+    if (!form || !out || !sec) { return; }
+    sec.classList.add('js');
+
+    function radio(name) {
+      var e = form.querySelector('input[name="' + name + '"]:checked');
+      return e ? e.value : '';
+    }
+
+    var SCHRITTE = [
+      { id: 's-pflegegrad', felder: ['pflegegrad'] },
+      { id: 's-versorgung', felder: ['versorgung'] },
+      { id: 's-betraege', felder: ['entlastungsbetrag_2026_genutzt_eur', 'verhinderungs_kurzzeitpflege_2026_genutzt_eur'] },
+      { id: 's-antrag', felder: ['antrag_gestellt'] }
+    ];
+
+    function gruppenSicht() {
       var pgv = radio('pflegegrad');
       var pgn = /^[1-5]$/.test(pgv) ? Number(pgv) : 0;
       var zuhause = radio('versorgung') === 'zuhause';
-      var gruppen = {
+      return {
         'g-entlastung': pgn >= 1 && zuhause,
         'g-verhinderung': pgn >= 2 && zuhause,
         'g-ersatz': pgn >= 2,
         'g-unter25': pgn >= 2 && zuhause,
         'g-verschlechterung': pgn >= 1
       };
-      Object.keys(gruppen).forEach(function (id) {
-        var g = $(id);
-        if (g) { g.hidden = !gruppen[id]; }
+    }
+    function sichtbarkeit() {
+      var g = gruppenSicht();
+      Object.keys(g).forEach(function (id) {
+        var n = $(id);
+        if (n) { n.hidden = !g[id]; }
       });
+    }
+    function schrittGilt(i) {
+      if (SCHRITTE[i].id !== 's-betraege') { return true; }
+      if (radio('pflegegrad') === '') { return true; }
+      var g = gruppenSicht();
+      return g['g-entlastung'] || g['g-verhinderung'] || g['g-ersatz'] || g['g-unter25'];
+    }
+    function gelten() {
+      var l = [];
+      SCHRITTE.forEach(function (s, i) { if (schrittGilt(i)) { l.push(i); } });
+      return l;
     }
 
     function lies() {
@@ -515,6 +628,7 @@
       };
     }
 
+    /* ---- Fehler ---- */
     var feldMap = {
       pflegegrad: ['pg-1', 'err-pflegegrad'],
       versorgung: ['versorgung-zuhause', 'err-versorgung'],
@@ -522,12 +636,10 @@
       entlastungsbetrag_2026_genutzt_eur: ['entlastung', 'err-entlastung'],
       verhinderungs_kurzzeitpflege_2026_genutzt_eur: ['verhinderung', 'err-verhinderung']
     };
-
     function setzeText(p, text) {
       var t = p.querySelector('.et');
       (t || p).textContent = text;
     }
-
     function feldLeeren(k) {
       var m = feldMap[k];
       if (!m) { return; }
@@ -539,13 +651,7 @@
         form.querySelectorAll('input[name="' + k + '"]').forEach(function (r) { r.removeAttribute('aria-invalid'); });
       }
     }
-
-    function fehlerLeeren() {
-      Object.keys(feldMap).forEach(feldLeeren);
-      var sum = $('fehler-summe');
-      if (sum) { sum.hidden = true; sum.textContent = ''; }
-    }
-
+    function fehlerLeeren() { Object.keys(feldMap).forEach(feldLeeren); }
     function feldFehler(k, text) {
       var m = feldMap[k];
       var p = $(m[1]);
@@ -553,40 +659,11 @@
       p.hidden = false;
       var inp = $(m[0]);
       if (inp) { inp.setAttribute('aria-invalid', 'true'); }
+      if (k === 'pflegegrad' || k === 'versorgung' || k === 'antrag_gestellt') {
+        form.querySelectorAll('input[name="' + k + '"]').forEach(function (r) { r.setAttribute('aria-invalid', 'true'); });
+      }
       return inp;
     }
-
-    function fehlerZeigen(fehler) {
-      var erste = null;
-      var sum = $('fehler-summe');
-      var ul = el('ul', null);
-      var n = 0;
-      Object.keys(fehler).forEach(function (k) {
-        if (!feldMap[k]) { return; }
-        var inp = feldFehler(k, fehler[k]);
-        if (!erste && inp) { erste = inp; }
-        var li = el('li', null);
-        var a = el('a', null, fehler[k]);
-        a.href = '#' + feldMap[k][0];
-        a.addEventListener('click', function (ev) {
-          ev.preventDefault();
-          if (inp) { inp.focus(); }
-        });
-        li.appendChild(a);
-        ul.appendChild(li);
-        n++;
-      });
-      if (sum) {
-        sum.textContent = '';
-        var kopfP = el('p', null, n === 1 ? 'Eine Angabe fehlt noch oder passt nicht:' : n + ' Angaben fehlen noch oder passen nicht:');
-        kopfP.insertBefore(svgFehler(), kopfP.firstChild);
-        sum.appendChild(kopfP);
-        sum.appendChild(ul);
-        sum.hidden = false;
-      }
-      if (erste) { erste.focus(); } else if (sum) { sum.focus(); }
-    }
-
     /* Prüfung beim Verlassen eines Betragsfeldes; Fehler verschwinden beim Fokussieren und Tippen */
     var betragFelder = {
       entlastung: ['entlastungsbetrag_2026_genutzt_eur', D.entlastung2026Jahr],
@@ -601,75 +678,108 @@
         zahl(inp.value, betragFelder[id][1], key, f);
         if (f[key]) { feldFehler(key, f[key]); }
       });
-      inp.addEventListener('focus', function () { feldLeeren(key); });
       inp.addEventListener('input', function () { feldLeeren(key); });
     });
+
+    /* Fehler dieses Schrittes anzeigen; true, wenn welche vorliegen */
+    function schrittFehler(i) {
+      var v = pruefe(lies());
+      var erste = null;
+      var n = 0;
+      SCHRITTE[i].felder.forEach(function (k) {
+        if (v.fehler[k]) {
+          var inp = feldFehler(k, v.fehler[k]);
+          if (!erste) { erste = inp; }
+          n++;
+        }
+      });
+      if (erste) { erste.focus(); }
+      return n > 0;
+    }
+
+    /* ---- Schrittanzeige ---- */
+    var fortschrittBox = $('fortschritt');
+    var listeBox = $('schritt-liste');
+    var btnZurueck = $('btn-zurueck');
+    var btnWeiter = $('btn-weiter');
+    var weiterText = btnWeiter.querySelector('.b-text');
+    var weiterIcon = btnWeiter.querySelector('.ic');
+    var aktuell = 0;
+
+    function aktualisiere() {
+      sichtbarkeit();
+      var gl = gelten();
+      var pos = gl.indexOf(aktuell);
+      if (pos < 0) { pos = 0; }
+      var nr = pos + 1;
+      var n = gl.length;
+      var kopf = $(SCHRITTE[aktuell].id).querySelector('.frage-nr');
+      if (kopf) { kopf.textContent = 'Frage ' + nr + ' von ' + n; }
+      fortschrittBox.textContent = '';
+      for (var k = 1; k <= n; k++) { fortschrittBox.appendChild(el('span', k <= nr ? 'seg an' : 'seg')); }
+      listeBox.textContent = '';
+      gl.forEach(function (idx, j) {
+        var li = el('li', j === pos ? 'aktiv' : (j < pos ? 'fertig' : ''));
+        if (j === pos) { li.setAttribute('aria-current', 'step'); }
+        li.appendChild(el('span', 'punkt', String(j + 1)));
+        li.appendChild(doc.createTextNode($(SCHRITTE[idx].id).getAttribute('data-label')));
+        listeBox.appendChild(li);
+      });
+      btnZurueck.hidden = pos === 0;
+      var letzte = pos === n - 1;
+      weiterText.textContent = letzte ? 'Ergebnis anzeigen' : 'Weiter';
+      if (weiterIcon) { weiterIcon.setAttribute('class', letzte ? 'ic aus' : 'ic'); }
+    }
+
+    function sichtbarMachen(ziel) {
+      var r = ziel.getBoundingClientRect();
+      var h = doc.defaultView.innerHeight || 700;
+      if (r.top < 0 || r.top > h * 0.5) { ziel.scrollIntoView(); }
+    }
+    function zeige(i, fokus) {
+      aktuell = i;
+      SCHRITTE.forEach(function (s, idx) { $(s.id).classList.toggle('aktiv', idx === i); });
+      aktualisiere();
+      if (fokus) {
+        var h = $(SCHRITTE[i].id).querySelector('.frage-titel');
+        if (h) { try { h.focus({ preventScroll: true }); } catch (e) { h.focus(); } }
+        sichtbarMachen(form);
+      }
+    }
+
+    function weiter() {
+      fehlerLeeren();
+      if (schrittFehler(aktuell)) { return; }
+      var gl = gelten();
+      var pos = gl.indexOf(aktuell);
+      if (pos >= 0 && pos < gl.length - 1) { zeige(gl[pos + 1], true); } else { los(); }
+    }
+    function zurueck() {
+      fehlerLeeren();
+      var gl = gelten();
+      var pos = gl.indexOf(aktuell);
+      if (pos > 0) { zeige(gl[pos - 1], true); }
+    }
+
     form.addEventListener('change', function (ev) {
       var n = ev.target && ev.target.name;
       var map = { pflegegrad: 'pflegegrad', versorgung: 'versorgung', antrag_gestellt: 'antrag_gestellt' };
       if (n && map[n]) { feldLeeren(map[n]); }
+      aktualisiere();
     });
+    form.addEventListener('submit', function (ev) { ev.preventDefault(); weiter(); });
+    btnZurueck.addEventListener('click', zurueck);
 
-    function svgFehler() {
-      var ns = 'http://www.w3.org/2000/svg';
-      var svg = doc.createElementNS(ns, 'svg');
-      svg.setAttribute('class', 'fehler-icon');
-      svg.setAttribute('viewBox', '0 0 20 20');
-      svg.setAttribute('width', '20');
-      svg.setAttribute('height', '20');
-      svg.setAttribute('aria-hidden', 'true');
-      svg.setAttribute('focusable', 'false');
-      var c = doc.createElementNS(ns, 'circle');
-      c.setAttribute('cx', '10'); c.setAttribute('cy', '10'); c.setAttribute('r', '8.25');
-      var p = doc.createElementNS(ns, 'path');
-      p.setAttribute('d', 'M10 5.5v5.5M10 14v.5');
-      svg.appendChild(c);
-      svg.appendChild(p);
-      return svg;
+    /* ======== Ergebnis ======== */
+    function statusText(status) {
+      var map = {
+        geltend: 'Geltendes Recht',
+        entwurf: 'Laut Gesetzentwurf (Stand 14.11.2026)',
+        offen: 'Noch offen',
+        erledigt: 'Nach Ihren Angaben erledigt'
+      };
+      return map[status] || map.offen;
     }
-    function svgPlusMinus() {
-      var ns = 'http://www.w3.org/2000/svg';
-      var svg = doc.createElementNS(ns, 'svg');
-      svg.setAttribute('class', 'pm');
-      svg.setAttribute('viewBox', '0 0 16 16');
-      svg.setAttribute('aria-hidden', 'true');
-      svg.setAttribute('focusable', 'false');
-      var v = doc.createElementNS(ns, 'path');
-      v.setAttribute('class', 'v');
-      v.setAttribute('d', 'M8 2v12');
-      var h = doc.createElementNS(ns, 'path');
-      h.setAttribute('d', 'M2 8h12');
-      svg.appendChild(v);
-      svg.appendChild(h);
-      return svg;
-    }
-
-    /* Anzeigenblock: Kopf h3, Einträge h4 */
-    function anzeigen(ids) {
-      var box = el('aside', 'anzeigen');
-      box.setAttribute('aria-labelledby', 'anzeigen-kopf');
-      box.appendChild(el('p', 'anz-label', 'Anzeige'));
-      var kopf = el('h3', 'anzeigen-kopf', 'Unterstützung, die jetzt passt');
-      kopf.id = 'anzeigen-kopf';
-      box.appendChild(kopf);
-      box.appendChild(el('p', 'anz-hinweis', 'Wir erhalten ggf. eine Vergütung, für Sie entstehen keine Mehrkosten.'));
-      ids.forEach(function (id) {
-        var a = ADS[id];
-        if (!a) { return; }
-        var row = el('div', 'eintrag');
-        row.appendChild(el('h4', 'eintrag-titel', a.titel));
-        row.appendChild(el('p', null, a.text));
-        var link = el('a', 'btn btn-sek');
-        link.href = a.href;
-        link.rel = 'sponsored nofollow noopener';
-        link.appendChild(doc.createTextNode(a.cta));
-        link.appendChild(el('span', 'sr-only', ' (Anzeige)'));
-        row.appendChild(link);
-        box.appendChild(row);
-      });
-      return box;
-    }
-
     function datumHeute() {
       var d = new Date();
       function z(n) { return (n < 10 ? '0' : '') + n; }
@@ -680,24 +790,151 @@
       if (pg === '0') { return 'noch kein Pflegegrad'; }
       return 'Pflegegrad unklar';
     }
+    function profil(eing) {
+      var t = /^[1-5]$/.test(eing.pflegegrad) ? 'Pflegegrad ' + eing.pflegegrad : (eing.pflegegrad === '0' ? 'Noch kein Pflegegrad' : 'Pflegegrad unklar');
+      return t + ', ' + (eing.versorgung === 'heim' ? 'im Pflegeheim' : 'zu Hause');
+    }
+    var KURZ = {
+      R1_entlastung_rest: 'für Hilfe im Alltag',
+      R1_entlastung_erledigt: 'für Hilfe im Alltag',
+      R2_verhinderung_rest: 'wenn Sie eine Pause brauchen',
+      R2_verhinderung_erledigt: 'wenn Sie eine Pause brauchen'
+    };
+
+    /* Zeile: Kopf (Name, Unterzeile, Betrag), optional aufklappbar */
+    function zeile(name, sub, betrag, inhalt, offen) {
+      var wurzel;
+      var kopf;
+      if (inhalt) {
+        wurzel = el('details', 'zeile');
+        if (offen) { wurzel.open = true; }
+        kopf = el('summary', 'z-kopf');
+      } else {
+        wurzel = el('div', 'zeile');
+        kopf = el('div', 'z-kopf');
+      }
+      var tx = el('span', 'z-text');
+      tx.appendChild(el('strong', null, name));
+      if (sub) { tx.appendChild(el('span', 'z-sub', sub)); }
+      kopf.appendChild(tx);
+      if (betrag) { kopf.appendChild(el('strong', 'z-betrag', betrag)); }
+      if (inhalt) { kopf.appendChild(icon('runter', 'chev')); }
+      wurzel.appendChild(kopf);
+      if (inhalt) { wurzel.appendChild(inhalt); }
+      return wurzel;
+    }
+    function leistungInhalt(it) {
+      var box = el('div', 'z-inhalt');
+      var ul = el('ul', null);
+      saetze(it.text).forEach(function (s) { ul.appendChild(el('li', null, s)); });
+      box.appendChild(ul);
+      if (it.jahr !== undefined) {
+        box.appendChild(el('p', 'z-klein', 'Jahresbetrag ' + fmt(it.jahr) + ', bereits genutzt ' + fmt(it.genutzt) + '.'));
+      }
+      if (it.unsicher) { box.appendChild(el('p', 'z-klein', it.unsicher)); }
+      if (it.frist) {
+        var fp = el('p', 'z-klein');
+        fp.appendChild(el('strong', null, 'Frist: '));
+        fp.appendChild(doc.createTextNode(it.frist));
+        box.appendChild(fp);
+      }
+      box.appendChild(el('p', 'z-klein', statusText(it.status) + '.'));
+      return box;
+    }
+    function abschnitt(titel) {
+      var s = el('section', 'erg-abschnitt');
+      s.appendChild(el('h3', null, titel));
+      return s;
+    }
+
+    function anzeigen(ids) {
+      var box = el('aside', 'anz-box');
+      box.setAttribute('aria-label', 'Anzeige');
+      box.appendChild(el('p', 'anz-hinweis', 'Anzeige. Wir erhalten ggf. eine Vergütung, für Sie entstehen keine Mehrkosten.'));
+      ids.forEach(function (id) {
+        var a = ADS[id];
+        if (!a) { return; }
+        var row = el('div', 'anz-eintrag');
+        row.appendChild(el('p', 'a-titel', a.titel));
+        var link = el('a', 'btn btn-sek');
+        link.href = a.href;
+        link.rel = 'sponsored nofollow noopener';
+        link.appendChild(doc.createTextNode(a.cta));
+        link.appendChild(el('span', 'sr-only', ' (Anzeige)'));
+        row.appendChild(link);
+        var det = el('details', 'anz-mehr');
+        det.appendChild(el('summary', null, 'Worauf Sie achten sollten'));
+        det.appendChild(el('p', null, a.text));
+        row.appendChild(det);
+        box.appendChild(row);
+      });
+      return box;
+    }
+
+    function vergleichsListe(liste) {
+      var ul = el('ul', 'vergleich');
+      liste.forEach(function (z) {
+        var li = el('li', null);
+        li.appendChild(el('h4', 'v-name', z.leistung));
+        var sp = el('div', 'v-spalten');
+        var c1 = el('p', null);
+        c1.appendChild(el('span', 'l', 'Heute'));
+        c1.appendChild(doc.createTextNode(z.heute));
+        var c2 = el('p', null);
+        c2.appendChild(el('span', 'l', 'Ab 2027 (Entwurf)'));
+        c2.appendChild(doc.createTextNode(z.ab2027));
+        sp.appendChild(c1);
+        sp.appendChild(c2);
+        li.appendChild(sp);
+        if (z.diff) { li.appendChild(el('p', 'l-klein', 'Veränderung: ' + z.diff)); }
+        if (z.status === 'offen') { li.appendChild(el('p', 'l-klein', 'Noch offen.')); }
+        ul.appendChild(li);
+      });
+      return ul;
+    }
+
+    function schrittZeile(text, nr) {
+      var li = el('li', null);
+      li.appendChild(el('span', 'nr', String(nr)));
+      var tx = el('div', 'nr-text');
+      var t = saetze(text);
+      tx.appendChild(el('p', null, t[0]));
+      if (t.length > 1) {
+        var det = el('details', 'mehr-klein');
+        det.appendChild(el('summary', null, 'Mehr dazu'));
+        det.appendChild(el('p', null, t.slice(1).join(' ')));
+        tx.appendChild(det);
+      }
+      li.appendChild(tx);
+      return li;
+    }
 
     function render(r, eing) {
       out.textContent = '';
-      var wrap = el('div', 'ergebnis-inhalt');
+      var wrap = el('div', 'erg');
 
-      /* Einstieg als Satz */
-      var sumJahr = 0, sumGen = 0, sumRest = 0, hatSumme = false;
+      /* Kopfleiste */
+      var bar = el('div', 'erg-bar');
+      var back = el('button', 'erg-zurueck');
+      back.type = 'button';
+      back.id = 'angaben-aendern';
+      back.appendChild(icon('links'));
+      back.appendChild(doc.createTextNode('Angaben ändern'));
+      bar.appendChild(back);
+      bar.appendChild(el('span', 'erg-profil', profil(eing)));
+      wrap.appendChild(bar);
+
+      /* Salbei-Fläche: Satz und Gesamtbetrag */
+      var sumJahr = 0, sumRest = 0, hatSumme = false;
       r.bis.forEach(function (it) {
-        if (it.jahr !== undefined) {
-          hatSumme = true;
-          sumJahr += it.jahr; sumGen += it.genutzt; sumRest += it.betrag;
-        }
+        if (it.jahr !== undefined) { hatSumme = true; sumJahr += it.jahr; sumRest += it.betrag; }
       });
+      var flaeche = el('section', 'erg-summe');
       var h2 = el('h2', 'ergebnis-satz');
       h2.id = 'ergebnis-titel';
       h2.tabIndex = -1;
       if (hatSumme && sumRest > 0) {
-        h2.appendChild(doc.createTextNode('Bis zum 31. Dezember können Sie noch'));
+        h2.appendChild(doc.createTextNode('Bis 31. Dezember können Sie noch'));
         h2.appendChild(el('span', 'betrag', fmt(sumRest)));
         h2.appendChild(doc.createTextNode('abrufen.'));
       } else if (hatSumme) {
@@ -705,145 +942,179 @@
       } else {
         h2.appendChild(doc.createTextNode('Ihre Übersicht'));
       }
-      wrap.appendChild(h2);
-      wrap.appendChild(el('p', 'ergebnis-meta', 'Berechnet für ' + pgText(eing.pflegegrad) + ', ' + (eing.versorgung === 'heim' ? 'Pflegeheim' : 'häusliche Pflege') + ', am ' + datumHeute() + '.'));
-      wrap.appendChild(el('p', 'hinweis', r.kopfzeile));
-      if (r.beruhigung) { wrap.appendChild(el('p', 'beruhigung', r.beruhigung)); }
+      flaeche.appendChild(h2);
+      if (hatSumme && sumRest > 0) {
+        flaeche.appendChild(el('p', 'erg-klein', 'Was bis Jahresende nicht genutzt wird, kann verfallen.'));
+      }
+      wrap.appendChild(flaeche);
 
-      /* (a) Leistungen mit Frist 2026 */
-      var sa = el('section', 'erg-block');
-      sa.setAttribute('aria-labelledby', 'erg-a');
-      var ha = el('h3', null, 'Bis 31.12.2026 noch nutzen');
-      ha.id = 'erg-a';
-      sa.appendChild(ha);
+      /* Ihr Geld für 2026 / Wichtig bis Jahresende / Jeden Monat zusätzlich */
+      var geld = r.bis.filter(function (it) { return it.jahr !== undefined; });
+      var wichtig = r.bis.filter(function (it) { return it.jahr === undefined && it.id !== 'R11_pflegehilfsmittel'; });
+      var hilfsmittel = r.bis.filter(function (it) { return it.id === 'R11_pflegehilfsmittel'; })[0];
+      var hausnotruf = r.regeln.indexOf('R12_wohnumfeld_hausnotruf') >= 0;
+      var offenGesetzt = false;
+      function offen() { if (offenGesetzt) { return false; } offenGesetzt = true; return true; }
+
       if (!r.bis.length) {
-        sa.appendChild(el('p', null, 'Aus Ihren Angaben ergeben sich keine betragsbezogenen Fristen zum 31.12.2026. Das ersetzt keine Auskunft Ihrer Pflegekasse.'));
-      } else {
-        var liste = el('ul', 'leistungen');
-        r.bis.forEach(function (it) {
-          var li = el('li', null);
-          var kopfZ = el('div', 'l-kopf');
-          kopfZ.appendChild(el('h4', 'l-name', it.titel));
-          var bt = it.jahr !== undefined ? fmt(it.betrag) : (it.betragText || '');
-          if (bt) { kopfZ.appendChild(el('p', 'l-betrag', bt)); }
-          li.appendChild(kopfZ);
-          if (it.jahr !== undefined) {
-            li.appendChild(el('p', 'l-klein', 'Jahresbetrag ' + fmt(it.jahr) + ', bereits genutzt ' + fmt(it.genutzt) + '.'));
-          }
-          var tp = el('p', null);
-          tp.appendChild(el('strong', null, 'So nutzen Sie es: '));
-          tp.appendChild(doc.createTextNode(it.text));
-          li.appendChild(tp);
-          if (it.unsicher) { li.appendChild(el('p', 'l-klein', it.unsicher)); }
-          if (it.frist) {
-            var fp = el('p', 'l-klein');
-            fp.appendChild(el('strong', null, 'Frist: '));
-            fp.appendChild(doc.createTextNode(it.frist));
-            li.appendChild(fp);
-          }
-          li.appendChild(el('p', 'l-klein', statusText(it.status) + '.'));
-          liste.appendChild(li);
-        });
-        sa.appendChild(liste);
+        wrap.appendChild(el('p', 'erg-leer', 'Aus Ihren Angaben ergeben sich keine betragsbezogenen Fristen zum 31.12.2026. Das ersetzt keine Auskunft Ihrer Pflegekasse.'));
       }
-      wrap.appendChild(sa);
-
-      /* (b) Ab 2027 voraussichtlich (Entwurf) */
-      var sb = el('section', 'erg-block');
-      sb.setAttribute('aria-labelledby', 'erg-b');
-      var hb = el('h3', null, 'Ab 2027 voraussichtlich');
-      hb.id = 'erg-b';
-      sb.appendChild(hb);
-      sb.appendChild(el('p', 'klein', 'Vergleich 2026 (geltendes Recht) mit 2027 laut Gesetzentwurf (Stand 14.11.2026). Die 2027-Werte sind nicht beschlossen.'));
-      function vergleichsListe(liste) {
-        var ul = el('ul', 'vergleich');
-        liste.forEach(function (z) {
-          var li = el('li', null);
-          li.appendChild(el('h4', 'v-name', z.leistung));
-          var sp = el('div', 'v-spalten');
-          var c1 = el('p', null);
-          c1.appendChild(el('span', 'l', 'Heute'));
-          c1.appendChild(doc.createTextNode(z.heute));
-          var c2 = el('p', null);
-          c2.appendChild(el('span', 'l', 'Ab 2027 (Entwurf)'));
-          c2.appendChild(doc.createTextNode(z.ab2027));
-          sp.appendChild(c1);
-          sp.appendChild(c2);
-          li.appendChild(sp);
-          if (z.diff) { li.appendChild(el('p', 'l-klein', 'Veränderung: ' + z.diff)); }
-          if (z.status === 'offen') { li.appendChild(el('p', 'l-klein', 'Noch offen.')); }
-          ul.appendChild(li);
+      if (geld.length) {
+        var s1 = abschnitt('Ihr Geld für 2026');
+        geld.forEach(function (it) {
+          var sub = KURZ[it.id] || '';
+          if (it.status === 'erledigt') { sub = it.betragText; }
+          s1.appendChild(zeile(it.titel.replace(' 2026', ''), sub, fmt(it.betrag), leistungInhalt(it), offen()));
         });
-        return ul;
+        wrap.appendChild(s1);
       }
-      var sichtbar = r.vergleich.filter(function (z) { return z.diff || z.id === 'R10'; });
-      var weitere = r.vergleich.filter(function (z) { return !(z.diff || z.id === 'R10'); });
-      if (sichtbar.length) { sb.appendChild(vergleichsListe(sichtbar)); }
-      r.hinweise.forEach(function (h) { sb.appendChild(el('p', null, h)); });
-      if (weitere.length || r.vergleich.some(function (z) { return z.hinweis; })) {
-        var det = el('details', 'mehr');
-        var sum = el('summary', null);
-        sum.appendChild(el('span', null, 'Alle Änderungen ansehen'));
-        sum.appendChild(svgPlusMinus());
-        det.appendChild(sum);
-        var inh = el('div', null);
-        if (weitere.length) { inh.appendChild(vergleichsListe(weitere)); }
-        var dl = el('dl', null);
-        r.vergleich.forEach(function (z) {
-          if (!z.hinweis) { return; }
-          dl.appendChild(el('dt', null, z.leistung));
-          dl.appendChild(el('dd', null, z.hinweis));
+      if (wichtig.length) {
+        var s2 = abschnitt('Wichtig bis Jahresende');
+        wichtig.forEach(function (it) {
+          s2.appendChild(zeile(it.titel, it.betragText || it.frist, '', leistungInhalt(it), offen()));
         });
-        inh.appendChild(dl);
-        det.appendChild(inh);
-        sb.appendChild(det);
+        wrap.appendChild(s2);
       }
-      wrap.appendChild(sb);
-
-      /* (c) Was Sie jetzt tun können */
-      var sc = el('section', 'erg-block');
-      sc.setAttribute('aria-labelledby', 'erg-c');
-      var hc = el('h3', null, 'Was Sie jetzt tun können');
-      hc.id = 'erg-c';
-      sc.appendChild(hc);
-      var ol = el('ol', 'schritte');
-      r.schritte.forEach(function (s) { ol.appendChild(el('li', null, s)); });
-      sc.appendChild(ol);
-      wrap.appendChild(sc);
+      if (hilfsmittel || hausnotruf) {
+        var s3 = abschnitt('Jeden Monat zusätzlich');
+        if (hilfsmittel) {
+          s3.appendChild(zeile('Pflegehilfsmittel', 'Handschuhe, Desinfektion, Bettschutz', 'bis ' + fmt(D.hilfsmittel2026Monat), leistungInhalt(hilfsmittel), false));
+        }
+        if (hausnotruf) {
+          s3.appendChild(zeile('Hausnotruf', 'Zuschuss der Pflegekasse, in der Regel', fmt(D.hausnotruf2026), null, false));
+        }
+        wrap.appendChild(s3);
+      }
 
       /* Anzeigen */
       if (r.ads.length) { wrap.appendChild(anzeigen(r.ads)); }
 
-      wrap.appendChild(el('p', 'klein', r.fusszeile));
+      /* Ab 2027 für Sie */
+      var s4 = abschnitt('Ab 2027 für Sie');
+      s4.appendChild(el('p', 'erg-unter', 'Laut Gesetzentwurf, noch nicht beschlossen.'));
+      var sichtbar = r.vergleich.filter(function (z) { return z.kurz; });
+      var weitere = r.vergleich.filter(function (z) { return !z.kurz; });
+      sichtbar.forEach(function (z) {
+        var row = el('div', 'zeile v-zeile');
+        var kopf = el('div', 'z-kopf');
+        var tx = el('span', 'z-text');
+        tx.appendChild(el('strong', null, z.kurz.name));
+        tx.appendChild(el('span', 'z-sub', z.kurz.einheit));
+        kopf.appendChild(tx);
+        var w = el('span', 'z-werte');
+        w.appendChild(el('span', 'z-alt', z.kurz.heute));
+        w.appendChild(icon('pfeil', 't-pfeil'));
+        w.appendChild(el('span', 'sr-only', ' wird zu '));
+        w.appendChild(el('strong', 'z-neu', z.kurz.ab));
+        kopf.appendChild(w);
+        row.appendChild(kopf);
+        s4.appendChild(row);
+      });
+      if (r.beruhigung) { s4.appendChild(el('p', 'erg-beruhigung', r.beruhigung)); }
+      var det = el('details', 'mehr');
+      if (!sichtbar.length) { det.open = true; }
+      var sum = el('summary', null);
+      sum.appendChild(el('span', null, 'Weitere Hinweise zu 2027'));
+      sum.appendChild(icon('runter', 'chev'));
+      det.appendChild(sum);
+      var inh = el('div', 'z-inhalt');
+      inh.appendChild(el('p', null, r.kopfzeile));
+      if (weitere.length) { inh.appendChild(vergleichsListe(weitere)); }
+      r.hinweise.forEach(function (h) { inh.appendChild(el('p', null, h)); });
+      var dl = el('dl', null);
+      r.vergleich.forEach(function (z) {
+        if (!z.hinweis) { return; }
+        dl.appendChild(el('dt', null, z.leistung));
+        dl.appendChild(el('dd', null, z.hinweis));
+      });
+      if (dl.childNodes.length) { inh.appendChild(dl); }
+      det.appendChild(inh);
+      s4.appendChild(det);
+      wrap.appendChild(s4);
+
+      /* Nächste Schritte */
+      var s5 = abschnitt('Ihre nächsten Schritte');
+      var ol = el('ol', 'schritte');
+      r.schritte.forEach(function (s, i) { ol.appendChild(schrittZeile(s, i + 1)); });
+      s5.appendChild(ol);
+      wrap.appendChild(s5);
+
+      /* Drucken oder teilen, Hinweis */
+      var fuss = el('section', 'erg-fuss');
+      var teil = el('button', 'btn-flaeche');
+      teil.type = 'button';
+      teil.id = 'teilen';
+      teil.appendChild(icon('drucken'));
+      teil.appendChild(doc.createTextNode('Ergebnis drucken oder teilen'));
+      fuss.appendChild(teil);
+      var hin = el('p', 'erg-klein');
+      hin.appendChild(doc.createTextNode('Berechnet für ' + pgText(eing.pflegegrad) + ', ' + (eing.versorgung === 'heim' ? 'Pflegeheim' : 'häusliche Pflege') + ', am ' + datumHeute() + '. ' + r.fusszeile + ' Kostenlose Pflegeberatung gibt es bei Ihrer Pflegekasse (§ 7a SGB XI). '));
+      var q = el('a', null, 'Quellen');
+      q.href = '/pflegereform-2027/#quellen';
+      hin.appendChild(q);
+      fuss.appendChild(hin);
+      wrap.appendChild(fuss);
+
       out.appendChild(wrap);
+
+      back.addEventListener('click', angabenAendern);
+      teil.addEventListener('click', function () {
+        var grob = doc.defaultView.matchMedia && doc.defaultView.matchMedia('(pointer: coarse)').matches;
+        var nav = doc.defaultView.navigator;
+        if (grob && nav && nav.share) {
+          var text = (hatSumme && sumRest > 0 ? 'Bis 31. Dezember noch ' + fmt(sumRest) + ' abrufbar' : 'Meine Übersicht') + ' (' + profil(eing) + ').';
+          nav.share({ title: 'Pflegereform-Rechner', text: text, url: doc.defaultView.location.origin + '/' }).catch(function () {});
+        } else {
+          doc.defaultView.print();
+        }
+      });
     }
 
-    function los(ev) {
-      if (ev) { ev.preventDefault(); }
+    function angabenAendern() {
+      out.textContent = '';
+      sec.classList.remove('ergebnis-modus');
+      form.hidden = false;
+      zeige(0, true);
+      sichtbarMachen(sec);
+    }
+
+    function los() {
       fehlerLeeren();
-      var r = berechne(lies());
+      sichtbarkeit();
+      var eing = lies();
+      var r = berechne(eing);
       if (!r.ok) {
-        out.textContent = '';
-        fehlerZeigen(r.fehler);
+        for (var i = 0; i < SCHRITTE.length; i++) {
+          var hat = SCHRITTE[i].felder.some(function (k) { return r.fehler[k]; });
+          if (hat) { zeige(i, false); schrittFehler(i); return; }
+        }
         return;
       }
-      render(r, lies());
+      render(r, eing);
+      form.hidden = true;
+      sec.classList.add('ergebnis-modus');
       var titel = $('ergebnis-titel');
-      if (titel) {
-        if (titel.scrollIntoView) { titel.scrollIntoView(); }
-        try { titel.focus({ preventScroll: true }); } catch (e) { titel.focus(); }
-      }
+      var bar = out.querySelector('.erg-bar');
+      if (bar && bar.scrollIntoView) { bar.scrollIntoView(); }
+      if (titel) { try { titel.focus({ preventScroll: true }); } catch (e) { titel.focus(); } }
     }
 
-    form.addEventListener('submit', los);
-    form.addEventListener('change', sichtbarkeit);
-    form.addEventListener('reset', function () {
-      setTimeout(function () { sichtbarkeit(); fehlerLeeren(); out.textContent = ''; }, 0);
+    /* Drucken: alle aufklappbaren Bereiche des Ergebnisses öffnen */
+    var geschlossen = [];
+    doc.defaultView.addEventListener('beforeprint', function () {
+      geschlossen = [];
+      out.querySelectorAll('details').forEach(function (d) { if (!d.open) { geschlossen.push(d); d.open = true; } });
     });
-    sichtbarkeit();
+    doc.defaultView.addEventListener('afterprint', function () {
+      geschlossen.forEach(function (d) { d.open = false; });
+      geschlossen = [];
+    });
+
+    zeige(0, false);
   }
 
-  var api = { berechne: berechne, pruefe: pruefe, fmt: fmt, DATA: D, ADS: ADS, STAND: STAND };
+
+  var api = { berechne: berechne, pruefe: pruefe, fmt: fmt, tabelle: tabelle, saetze: saetze, DATA: D, ADS: ADS, STAND: STAND };
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = api;
   } else {
