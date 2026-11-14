@@ -127,7 +127,7 @@ main { display: block; }
 /* ---------- Hero ---------- */
 .hero { position: relative; }
 .hero-foto { height: 64vw; max-height: 380px; background: var(--mist); overflow: hidden; }
-.hero-foto img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 72% 30%; color: transparent; }
+.hero-foto img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 58% 30%; color: transparent; }
 .blatt { position: relative; margin-top: -28px; background: var(--white); border-radius: 24px 24px 0 0; padding: 28px var(--rand) 36px; display: flex; flex-direction: column; gap: 16px; }
 .blatt h1 { font-size: 34px; }
 .blatt p { margin: 0; }
@@ -140,7 +140,7 @@ main { display: block; }
 @media (min-width: 960px) {
   .hero { max-width: var(--max); margin: 0 auto 136px; padding: 8px var(--rand) 0; }
   .hero-foto { height: 560px; max-height: none; border-radius: 28px; }
-  .hero-foto img { object-position: 70% 35%; }
+  .hero-foto img { object-position: 60% 30%; }
   .blatt {
     position: absolute; left: calc(var(--rand) + 40px); bottom: -56px; margin: 0; width: 500px;
     padding: 40px 40px 36px; border-radius: var(--r-flaeche); gap: 20px;

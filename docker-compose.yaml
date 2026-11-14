@@ -4,32 +4,17 @@ services:
   web:
     image: nginx:alpine
     restart: always
-    environment:
-      HERO_URL: "https://d8j0ntlcm91z4.cloudfront.net/user_3LGmyASO83V0CGBEPfaA0ReFNXC/hf_20261114_150933_7ae3a785-d600-47f3-8c73-8821ada2234e.png"
-    volumes:
-      - bilder:/cache
     entrypoint: ["/bin/sh", "-c"]
     command:
       - >
         set -e;
-        mkdir -p /cache /tmp/src;
-        (
-        if [ ! -f /cache/hero-1600.webp ] || [ ! -f /cache/hero-900.webp ] || [ "$$(cat /cache/source.txt 2>/dev/null)" != "$$HERO_URL" ]; then
-        apk add --no-cache libwebp-tools >/dev/null &&
-        wget -qO /cache/hero.png "$$HERO_URL" &&
-        cwebp -quiet -q 78 -resize 1600 0 /cache/hero.png -o /cache/hero-1600.webp &&
-        cwebp -quiet -q 76 -resize 900 0 /cache/hero.png -o /cache/hero-900.webp &&
-        printf '%s' "$$HERO_URL" > /cache/source.txt;
-        fi
-        ) || true;
+        mkdir -p /tmp/src;
         wget -qO- https://codeload.github.com/venthayconsulting-create/pflegereform-rechner/tar.gz/refs/heads/main | tar xz -C /tmp/src;
         SRC=$$(ls -d /tmp/src/*/);
         rm -rf /usr/share/nginx/html/*;
         cp -r $${SRC}site/. /usr/share/nginx/html/;
         rm -f /usr/share/nginx/html/nginx.conf;
         cp $${SRC}site/nginx.conf /etc/nginx/nginx.conf;
-        mkdir -p /usr/share/nginx/html/assets/img;
-        cp /cache/hero-*.webp /usr/share/nginx/html/assets/img/ 2>/dev/null || true;
         rm -rf /tmp/src;
         nginx -t && exec nginx -g 'daemon off;'
     logging:
@@ -50,8 +35,6 @@ services:
       - traefik.http.middlewares.pflegerechner-hsts.headers.STSSeconds=31536000
       - traefik.http.middlewares.pflegerechner-hsts.headers.forceSTSHeader=true
       - traefik.http.routers.pflegerechner-v2.middlewares=pflegerechner-hsts@docker
-volumes:
-  bilder: {}
 networks:
   root_default:
     external: true

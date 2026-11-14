@@ -1,2 +1,1 @@
-Hero-Foto (hero-1600.webp, hero-900.webp): KI-generiert mit Higgsfield am 14.11.2026. Die dargestellten Personen sind fiktiv.
-Die Dateien werden beim Containerstart vom Server erzeugt (siehe docker-compose.yaml) und liegen nicht im Repository.
+Hero-Foto: von Roman Klesper bereitgestellt (14.11.2026), fiktive Personen. Statisch im Repo, wird nicht mehr beim Containerstart geladen.
