@@ -736,6 +736,12 @@
       var h = doc.defaultView.innerHeight || 700;
       if (r.top < 0 || r.top > h * 0.5) { ziel.scrollIntoView(); }
     }
+    var gezaehlt = {};
+    function zaehle(name) {
+      if (gezaehlt[name]) { return; }
+      gezaehlt[name] = true;
+      try { var bild = new Image(); bild.src = '/e/' + name + '.gif'; } catch (e) { /* Zählen ist optional */ }
+    }
     function zeige(i, fokus) {
       aktuell = i;
       SCHRITTE.forEach(function (s, idx) { $(s.id).classList.toggle('aktiv', idx === i); });
@@ -752,6 +758,7 @@
       if (schrittFehler(aktuell)) { return; }
       var gl = gelten();
       var pos = gl.indexOf(aktuell);
+      if (aktuell === gl[0]) { zaehle('start'); }
       if (pos >= 0 && pos < gl.length - 1) { zeige(gl[pos + 1], true); } else { los(); }
     }
     function zurueck() {
@@ -1091,6 +1098,7 @@
         return;
       }
       render(r, eing);
+      zaehle('ergebnis');
       form.hidden = true;
       sec.classList.add('ergebnis-modus');
       var titel = $('ergebnis-titel');
