@@ -476,27 +476,36 @@
   }
 
   /* ---------- Regionale Partner ---------- */
-  /* Liefert den Partner, dessen PLZ-Bereiche die (gültige, 5-stellige) Postleitzahl enthalten, sonst null. */
-  function partnerFuerPlz(plz, liste) {
+  /* Alle Partner, deren PLZ-Bereiche die (gültige, 5-stellige) Postleitzahl enthalten. */
+  function partnerAlleFuerPlz(plz, liste) {
     var s = plz === undefined || plz === null ? '' : String(plz).trim();
-    if (!/^[0-9]{5}$/.test(s)) { return null; }
+    var out = [];
+    if (!/^[0-9]{5}$/.test(s)) { return out; }
     var n = Number(s);
     var l = liste || PARTNER;
     for (var i = 0; i < l.length; i++) {
       var b = l[i].plz_bereiche || [];
       for (var j = 0; j < b.length; j++) {
-        if (n >= b[j][0] && n <= b[j][1]) { return l[i]; }
+        if (n >= b[j][0] && n <= b[j][1]) { out.push(l[i]); break; }
       }
     }
-    return null;
+    return out;
   }
-  /* Partner nur zeigen, wenn die Postleitzahl passt und ein Entlastungsbetrag-Rest besteht oder Pflegegrad 1 bis 5 zu Hause vorliegt. */
+  /* Erster passender Partner oder null. */
+  function partnerFuerPlz(plz, liste) {
+    var a = partnerAlleFuerPlz(plz, liste);
+    return a.length ? a[0] : null;
+  }
+  /* Passende Partner für das Ergebnis. zeigen_wenn "entlastung": Entlastungsbetrag-Rest oder Pflegegrad 1 bis 5 zu Hause.
+     "wohnumfeld": Pflegegrad 1 bis 5 zu Hause. */
   function partnerPassend(eing, r, liste) {
-    if (!r || !r.ok || !eing) { return null; }
+    if (!r || !r.ok || !eing) { return []; }
     var zuhause = eing.versorgung === 'zuhause';
     var hatPG = /^[1-5]$/.test(String(eing.pflegegrad));
-    if (!((r.restEntlastung > 0) || (hatPG && zuhause))) { return null; }
-    return partnerFuerPlz(eing.plz, liste);
+    return partnerAlleFuerPlz(eing.plz, liste).filter(function (p) {
+      if (p.zeigen_wenn === 'wohnumfeld') { return hatPG && zuhause; }
+      return (r.restEntlastung > 0) || (hatPG && zuhause);
+    });
   }
 
   /* Sätze eines Textes (ohne Lookbehind, damit auch ältere Browser den Code laden). */
@@ -925,20 +934,20 @@
       return box;
     }
 
-    function partnerBlock(p) {
-      var box = el('aside', 'partner-box');
-      box.id = 'partner-' + p.id;
-      box.setAttribute('aria-labelledby', 'partner-titel');
-      box.appendChild(el('p', 'anz-hinweis', 'Anzeige: Partner in Ihrer Region'));
-      var h = el('h3', null, 'Hilfe im Alltag in Ihrer Nähe');
-      h.id = 'partner-titel';
-      box.appendChild(h);
-      box.appendChild(el('p', 'partner-satz', p.satz));
-      box.appendChild(el('h4', 'partner-name', p.name));
-      box.appendChild(el('p', 'partner-art', p.art));
-      box.appendChild(el('p', 'partner-meta', 'Einsatzgebiet: ' + p.gebiet));
-      box.appendChild(el('p', null, p.text));
-      if (p.hinweis) { box.appendChild(el('p', 'partner-meta', p.hinweis)); }
+    var PARTNER_GRUPPEN = {
+      entlastung: 'Hilfe im Alltag in Ihrer Nähe',
+      wohnumfeld: 'Sicher im Bad'
+    };
+    function partnerEintrag(p) {
+      var e = el('div', 'partner-eintrag');
+      e.id = 'partner-' + p.id;
+      e.appendChild(el('p', 'partner-satz', p.satz));
+      e.appendChild(el('h4', 'partner-name', p.name));
+      if (p.firma) { e.appendChild(el('p', 'partner-meta', p.firma)); }
+      e.appendChild(el('p', 'partner-art', p.art));
+      if (p.gebiet) { e.appendChild(el('p', 'partner-meta', 'Einsatzgebiet: ' + p.gebiet)); }
+      e.appendChild(el('p', null, p.text));
+      if (p.hinweis) { e.appendChild(el('p', 'partner-meta', p.hinweis)); }
       var akt = el('div', 'partner-aktionen');
       var tel = el('a', 'btn', 'Anrufen: ' + p.telefon);
       tel.href = 'tel:' + p.telefon_link;
@@ -950,7 +959,26 @@
       web.appendChild(doc.createTextNode('Website ansehen'));
       web.appendChild(el('span', 'sr-only', ' (Anzeige)'));
       akt.appendChild(web);
-      box.appendChild(akt);
+      e.appendChild(akt);
+      return e;
+    }
+    function partnerBlock(liste) {
+      var box = el('aside', 'partner-box');
+      box.setAttribute('aria-label', 'Anzeige: Partner in Ihrer Region');
+      box.appendChild(el('p', 'anz-hinweis', 'Anzeige: Partner in Ihrer Region'));
+      var gruppen = [];
+      liste.forEach(function (p) {
+        var g = PARTNER_GRUPPEN[p.zeigen_wenn] ? p.zeigen_wenn : 'entlastung';
+        var gr = gruppen.filter(function (x) { return x.id === g; })[0];
+        if (!gr) { gr = { id: g, liste: [] }; gruppen.push(gr); }
+        gr.liste.push(p);
+      });
+      gruppen.forEach(function (gr) {
+        var sec = el('section', 'partner-gruppe');
+        sec.appendChild(el('h3', null, PARTNER_GRUPPEN[gr.id]));
+        gr.liste.forEach(function (p) { sec.appendChild(partnerEintrag(p)); });
+        box.appendChild(sec);
+      });
       return box;
     }
 
@@ -1052,15 +1080,19 @@
         wrap.appendChild(s1);
       }
       /* Regionaler Partner: nur bei passender Postleitzahl, direkt nach „Ihr Geld für 2026“ */
-      var partner = partnerPassend(eing, r);
-      if (partner) {
+      var partnerListe = partnerPassend(eing, r).map(function (p) {
         var pd = {};
-        Object.keys(partner).forEach(function (k) { pd[k] = partner[k]; });
-        pd.satz = r.restEntlastung > 0
-          ? 'Ihren offenen Entlastungsbetrag können Sie für eine anerkannte Alltagshilfe nutzen.'
-          : 'Eine Alltagshilfe kann Sie zu Hause entlasten.';
-        wrap.appendChild(partnerBlock(pd));
-        zaehle('partner-' + partner.id + '-gezeigt');
+        Object.keys(p).forEach(function (k) { pd[k] = p[k]; });
+        if (!pd.satz) {
+          pd.satz = r.restEntlastung > 0
+            ? 'Ihren offenen Entlastungsbetrag können Sie für eine anerkannte Alltagshilfe nutzen.'
+            : 'Eine Alltagshilfe kann Sie zu Hause entlasten.';
+        }
+        return pd;
+      });
+      if (partnerListe.length) {
+        wrap.appendChild(partnerBlock(partnerListe));
+        partnerListe.forEach(function (p) { zaehle('partner-' + p.id + '-gezeigt'); });
       }
       if (wichtig.length) {
         var s2 = abschnitt('Wichtig bis Jahresende');
@@ -1209,7 +1241,7 @@
   }
 
 
-  var api = { berechne: berechne, pruefe: pruefe, fmt: fmt, tabelle: tabelle, saetze: saetze, DATA: D, ADS: ADS, PARTNER: PARTNER, partnerFuerPlz: partnerFuerPlz, partnerPassend: partnerPassend, STAND: STAND };
+  var api = { berechne: berechne, pruefe: pruefe, fmt: fmt, tabelle: tabelle, saetze: saetze, DATA: D, ADS: ADS, PARTNER: PARTNER, partnerFuerPlz: partnerFuerPlz, partnerAlleFuerPlz: partnerAlleFuerPlz, partnerPassend: partnerPassend, STAND: STAND };
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = api;
   } else {

@@ -359,6 +359,10 @@ details[open] > summary .chev { transform: rotate(180deg); }
 /* Regionaler Partner im Ergebnis */
 .partner-box { margin: 36px 0 0; padding: 24px 20px; background: var(--mist); border-radius: var(--r-flaeche); display: flex; flex-direction: column; gap: 10px; }
 .partner-box p, .partner-box h3, .partner-box h4 { margin: 0; }
+.partner-gruppe { display: flex; flex-direction: column; gap: 10px; }
+.partner-gruppe + .partner-gruppe { padding-top: 20px; border-top: 1px solid var(--line); }
+.partner-eintrag { display: flex; flex-direction: column; gap: 10px; }
+.partner-eintrag + .partner-eintrag { padding-top: 16px; border-top: 1px solid var(--line); }
 .partner-box h3 { font-size: 24px; font-weight: 800; line-height: 1.2; }
 .partner-satz { max-width: var(--measure); }
 .partner-name { margin-top: 8px; font-size: 1.2rem; font-weight: 700; line-height: 1.3; }
