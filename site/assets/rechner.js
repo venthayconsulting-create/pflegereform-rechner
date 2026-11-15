@@ -42,6 +42,9 @@
     }
   };
 
+  /* Regionale Partner (nur aktive Einträge, siehe regionen.json). Region wird nur anhand einer freiwilligen Postleitzahl im Browser bestimmt. */
+  var PARTNER = [];
+
   var D = {
     pflegegeld2026: { 1: 0, 2: 347, 3: 599, 4: 800, 5: 990 },
     sachleistung2026: { 1: 0, 2: 796, 3: 1497, 4: 1859, 5: 2299 },
@@ -112,6 +115,10 @@
     if (['ja', 'nein', 'weiss_nicht'].indexOf(antrag) < 0) { fehler.antrag_gestellt = 'Bitte wählen Sie eine Antwort aus.'; }
     var entl = zahl(e.entlastungsbetrag_2026_genutzt_eur, D.entlastung2026Jahr, 'entlastungsbetrag_2026_genutzt_eur', fehler);
     var verh = zahl(e.verhinderungs_kurzzeitpflege_2026_genutzt_eur, D.jahresbetragVK2026, 'verhinderungs_kurzzeitpflege_2026_genutzt_eur', fehler);
+    var plz = e.plz === undefined || e.plz === null ? '' : String(e.plz).trim();
+    if (plz !== '' && !/^[0-9]{5}$/.test(plz)) {
+      fehler.plz = 'Bitte geben Sie die Postleitzahl mit genau 5 Ziffern ein oder lassen Sie das Feld leer.';
+    }
     var ok = Object.keys(fehler).length === 0;
     return {
       ok: ok,
@@ -120,6 +127,7 @@
         pflegegrad: pg,
         versorgung: vers,
         antrag_gestellt: antrag,
+        plz: plz,
         entl: entl,
         verh: verh,
         unter25: e.alter_unter_25 === true,
@@ -467,6 +475,30 @@
     ];
   }
 
+  /* ---------- Regionale Partner ---------- */
+  /* Liefert den Partner, dessen PLZ-Bereiche die (gültige, 5-stellige) Postleitzahl enthalten, sonst null. */
+  function partnerFuerPlz(plz, liste) {
+    var s = plz === undefined || plz === null ? '' : String(plz).trim();
+    if (!/^[0-9]{5}$/.test(s)) { return null; }
+    var n = Number(s);
+    var l = liste || PARTNER;
+    for (var i = 0; i < l.length; i++) {
+      var b = l[i].plz_bereiche || [];
+      for (var j = 0; j < b.length; j++) {
+        if (n >= b[j][0] && n <= b[j][1]) { return l[i]; }
+      }
+    }
+    return null;
+  }
+  /* Partner nur zeigen, wenn die Postleitzahl passt und ein Entlastungsbetrag-Rest besteht oder Pflegegrad 1 bis 5 zu Hause vorliegt. */
+  function partnerPassend(eing, r, liste) {
+    if (!r || !r.ok || !eing) { return null; }
+    var zuhause = eing.versorgung === 'zuhause';
+    var hatPG = /^[1-5]$/.test(String(eing.pflegegrad));
+    if (!((r.restEntlastung > 0) || (hatPG && zuhause))) { return null; }
+    return partnerFuerPlz(eing.plz, liste);
+  }
+
   /* Sätze eines Textes (ohne Lookbehind, damit auch ältere Browser den Code laden). */
   function saetze(text) {
     return String(text).replace(/\.\s+(?=[A-ZÄÖÜ])/g, '.\u0001').split('\u0001');
@@ -578,7 +610,7 @@
 
     var SCHRITTE = [
       { id: 's-pflegegrad', felder: ['pflegegrad'] },
-      { id: 's-versorgung', felder: ['versorgung'] },
+      { id: 's-versorgung', felder: ['versorgung', 'plz'] },
       { id: 's-betraege', felder: ['entlastungsbetrag_2026_genutzt_eur', 'verhinderungs_kurzzeitpflege_2026_genutzt_eur'] },
       { id: 's-antrag', felder: ['antrag_gestellt'] }
     ];
@@ -592,7 +624,8 @@
         'g-verhinderung': pgn >= 2 && zuhause,
         'g-ersatz': pgn >= 2,
         'g-unter25': pgn >= 2 && zuhause,
-        'g-verschlechterung': pgn >= 1
+        'g-verschlechterung': pgn >= 1,
+        'g-plz': zuhause
       };
     }
     function sichtbarkeit() {
@@ -624,7 +657,8 @@
         verhinderungs_kurzzeitpflege_2026_genutzt_eur: sicht('g-verhinderung') ? $('verhinderung').value : '',
         ersatzpflege_2025_noch_nicht_abgerechnet: sicht('g-ersatz') && $('ersatz2025').checked,
         alter_unter_25: sicht('g-unter25') && $('unter25').checked,
-        verschlechterung_erwartet: sicht('g-verschlechterung') && $('verschlechterung').checked
+        verschlechterung_erwartet: sicht('g-verschlechterung') && $('verschlechterung').checked,
+        plz: sicht('g-plz') ? $('plz').value : ''
       };
     }
 
@@ -632,6 +666,7 @@
     var feldMap = {
       pflegegrad: ['pg-1', 'err-pflegegrad'],
       versorgung: ['versorgung-zuhause', 'err-versorgung'],
+      plz: ['plz', 'err-plz'],
       antrag_gestellt: ['antrag-ja', 'err-antrag'],
       entlastungsbetrag_2026_genutzt_eur: ['entlastung', 'err-entlastung'],
       verhinderungs_kurzzeitpflege_2026_genutzt_eur: ['verhinderung', 'err-verhinderung']
@@ -680,6 +715,18 @@
       });
       inp.addEventListener('input', function () { feldLeeren(key); });
     });
+
+    /* Postleitzahl (freiwillig): Prüfung beim Verlassen des Feldes, Fehler verschwindet beim Tippen */
+    var plzInp = $('plz');
+    if (plzInp) {
+      plzInp.addEventListener('blur', function (ev) {
+        /* Beim Tippen auf „Weiter“ meldet der Klick selbst den Fehler; sonst verschiebt sich der Button unter dem Finger. */
+        if (ev.relatedTarget && ev.relatedTarget === btnWeiter) { return; }
+        var f = pruefe({ plz: plzInp.value }).fehler;
+        if (f.plz) { feldFehler('plz', f.plz); }
+      });
+      plzInp.addEventListener('input', function () { feldLeeren('plz'); });
+    }
 
     /* Fehler dieses Schrittes anzeigen; true, wenn welche vorliegen */
     function schrittFehler(i) {
@@ -878,6 +925,35 @@
       return box;
     }
 
+    function partnerBlock(p) {
+      var box = el('aside', 'partner-box');
+      box.id = 'partner-' + p.id;
+      box.setAttribute('aria-labelledby', 'partner-titel');
+      box.appendChild(el('p', 'anz-hinweis', 'Anzeige: Partner in Ihrer Region'));
+      var h = el('h3', null, 'Hilfe im Alltag in Ihrer Nähe');
+      h.id = 'partner-titel';
+      box.appendChild(h);
+      box.appendChild(el('p', 'partner-satz', p.satz));
+      box.appendChild(el('h4', 'partner-name', p.name));
+      box.appendChild(el('p', 'partner-art', p.art));
+      box.appendChild(el('p', 'partner-meta', 'Einsatzgebiet: ' + p.gebiet));
+      box.appendChild(el('p', null, p.text));
+      if (p.hinweis) { box.appendChild(el('p', 'partner-meta', p.hinweis)); }
+      var akt = el('div', 'partner-aktionen');
+      var tel = el('a', 'btn', 'Anrufen: ' + p.telefon);
+      tel.href = 'tel:' + p.telefon_link;
+      tel.addEventListener('click', function () { zaehle('partner-' + p.id + '-anruf'); });
+      akt.appendChild(tel);
+      var web = el('a', 'btn btn-sek');
+      web.href = '/go/' + p.id;
+      web.rel = 'sponsored nofollow noopener';
+      web.appendChild(doc.createTextNode('Website ansehen'));
+      web.appendChild(el('span', 'sr-only', ' (Anzeige)'));
+      akt.appendChild(web);
+      box.appendChild(akt);
+      return box;
+    }
+
     function vergleichsListe(liste) {
       var ul = el('ul', 'vergleich');
       liste.forEach(function (z) {
@@ -974,6 +1050,17 @@
           s1.appendChild(zeile(it.titel.replace(' 2026', ''), sub, fmt(it.betrag), leistungInhalt(it), offen()));
         });
         wrap.appendChild(s1);
+      }
+      /* Regionaler Partner: nur bei passender Postleitzahl, direkt nach „Ihr Geld für 2026“ */
+      var partner = partnerPassend(eing, r);
+      if (partner) {
+        var pd = {};
+        Object.keys(partner).forEach(function (k) { pd[k] = partner[k]; });
+        pd.satz = r.restEntlastung > 0
+          ? 'Ihren offenen Entlastungsbetrag können Sie für eine anerkannte Alltagshilfe nutzen.'
+          : 'Eine Alltagshilfe kann Sie zu Hause entlasten.';
+        wrap.appendChild(partnerBlock(pd));
+        zaehle('partner-' + partner.id + '-gezeigt');
       }
       if (wichtig.length) {
         var s2 = abschnitt('Wichtig bis Jahresende');
@@ -1122,7 +1209,7 @@
   }
 
 
-  var api = { berechne: berechne, pruefe: pruefe, fmt: fmt, tabelle: tabelle, saetze: saetze, DATA: D, ADS: ADS, STAND: STAND };
+  var api = { berechne: berechne, pruefe: pruefe, fmt: fmt, tabelle: tabelle, saetze: saetze, DATA: D, ADS: ADS, PARTNER: PARTNER, partnerFuerPlz: partnerFuerPlz, partnerPassend: partnerPassend, STAND: STAND };
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = api;
   } else {
