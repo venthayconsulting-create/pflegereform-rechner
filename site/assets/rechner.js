@@ -130,6 +130,7 @@
         plz: plz,
         entl: entl,
         verh: verh,
+        unbekannt: e.betraege_unbekannt === true,
         unter25: e.alter_unter_25 === true,
         ersatz2025: e.ersatzpflege_2025_noch_nicht_abgerechnet === true,
         verschlechterung: e.verschlechterung_erwartet === true
@@ -157,6 +158,10 @@
     function add(id) { regeln.push(id); }
 
     /* --- (a) Bis 31.12.2026 --- */
+    /* Unbekannte Beträge: Rechnung mit 0 € genutzt; Darstellung als Obergrenze („bis zu“) */
+    var unb = e.unbekannt === true && hatPG && zuhause;
+    if (unb) { e.entl = 0; e.verh = 0; }
+    var bz = unb ? 'bis zu ' : '';
     var restEntl = hatPG && zuhause ? Math.max(0, D.entlastung2026Jahr - e.entl) : null;
     var restVK = pg >= 2 && zuhause ? Math.max(0, D.jahresbetragVK2026 - e.verh) : null;
 
@@ -167,9 +172,9 @@
           id: 'R1_entlastung_rest', prio: 1, status: 'entwurf',
           jahr: D.entlastung2026Jahr, genutzt: e.entl,
           titel: 'Entlastungsbetrag 2026',
-          betrag: restEntl, betragText: fmt(restEntl) + ' rechnerisch offen',
+          betrag: restEntl, betragText: bz + fmt(restEntl) + ' rechnerisch offen',
           frist: 'Belege möglichst bis 31.12.2026 einreichen',
-          text: 'Von Ihrem Entlastungsbetrag 2026 sind rechnerisch noch ' + fmt(restEntl) + ' offen (131 € × 12 Monate abzüglich Ihrer Angabe). Nach geltendem Recht könnten Sie Reste bis 30.06.2027 nutzen. Im Entwurf für 2027 ist kein Ansparen vorgesehen, und TK sowie Verbraucherzentrale NRW weisen darauf hin, dass 2026-Reste zum 31.12.2026 verfallen könnten. Reichen Sie Belege deshalb möglichst bis Jahresende ein.',
+          text: (unb ? 'Vom Entlastungsbetrag 2026 können noch bis zu ' + fmt(restEntl) + ' offen sein (131 € × 12 Monate). Wie viel Sie schon genutzt haben, wissen wir nicht.' : 'Von Ihrem Entlastungsbetrag 2026 sind rechnerisch noch ' + fmt(restEntl) + ' offen (131 € × 12 Monate abzüglich Ihrer Angabe).') + ' Nach geltendem Recht könnten Sie Reste bis 30.06.2027 nutzen. Im Entwurf für 2027 ist kein Ansparen vorgesehen, und TK sowie Verbraucherzentrale NRW weisen darauf hin, dass 2026-Reste zum 31.12.2026 verfallen könnten. Reichen Sie Belege deshalb möglichst bis Jahresende ein.',
           unsicher: 'Offen: Eine Übergangsregel für 2026-Reste wurde im Gesetzestext nicht gefunden.'
         });
       } else {
@@ -191,9 +196,9 @@
           id: 'R2_verhinderung_rest', prio: 2, status: 'entwurf',
           jahr: D.jahresbetragVK2026, genutzt: e.verh,
           titel: 'Verhinderungs- und Kurzzeitpflege 2026',
-          betrag: restVK, betragText: fmt(restVK) + ' rechnerisch offen',
+          betrag: restVK, betragText: bz + fmt(restVK) + ' rechnerisch offen',
           frist: 'Belege zeitnah einreichen; Erstattungsantrag für Ersatzpflege 2026 nach geltendem Recht bis 31.12.2027 (ob der Entwurf daran etwas ändert, ist offen)',
-          text: 'Vom gemeinsamen Jahresbetrag für Verhinderungs- und Kurzzeitpflege (3.539 €) sind 2026 rechnerisch noch ' + fmt(restVK) + ' offen. Der Entwurf sieht ab 2027 keine eigene Verhinderungspflege und keinen gemeinsamen Jahresbetrag mehr vor. Wenn Sie 2026 Ersatzpflege planen oder bereits hatten, reichen Sie die Belege zeitnah ein.',
+          text: (unb ? 'Vom gemeinsamen Jahresbetrag für Verhinderungs- und Kurzzeitpflege (3.539 €) können 2026 noch bis zu ' + fmt(restVK) + ' offen sein.' : 'Vom gemeinsamen Jahresbetrag für Verhinderungs- und Kurzzeitpflege (3.539 €) sind 2026 rechnerisch noch ' + fmt(restVK) + ' offen.') + ' Der Entwurf sieht ab 2027 keine eigene Verhinderungspflege und keinen gemeinsamen Jahresbetrag mehr vor. Wenn Sie 2026 Ersatzpflege planen oder bereits hatten, reichen Sie die Belege zeitnah ein.',
           unsicher: 'Hinweis: Der Jahresbetrag gilt je Kalenderjahr (§ 42a SGB XI). Eine Übertragung ins Folgejahr sieht der Gesetzestext nicht vor.'
         });
       } else {
@@ -452,6 +457,7 @@
       entwurfLabel: ENTWURF,
       kopfzeile: 'Stand 14.11.2026: Das Pflegeneuordnungsgesetz ist noch nicht beschlossen. Bundestag und Bundesrat entscheiden voraussichtlich im Dezember 2026. Die Angaben können sich ändern.',
       beruhigung: hatPG ? 'Wer 2026 einen Pflegegrad hat, soll ihn laut Entwurf allein durch das Gesetz nicht verlieren.' : '',
+      betraegeUnbekannt: unb,
       restEntlastung: restEntl,
       restVerhinderung: restVK,
       bis: bis,
@@ -649,6 +655,11 @@
         var n = $(id);
         if (n) { n.hidden = !g[id]; }
       });
+      /* Frage „Kennen Sie die Beträge?“ nur, wenn ein Betragsfeld gilt; Felder nur bei „Ja“ */
+      var frage = $('g-bekannt');
+      if (frage) { frage.hidden = !(g['g-entlastung'] || g['g-verhinderung']); }
+      var felder = $('betraege-felder');
+      if (felder) { felder.hidden = radio('betraege') !== 'ja'; }
     }
     function schrittGilt(i) {
       if (SCHRITTE[i].id !== 's-betraege') { return true; }
@@ -664,12 +675,14 @@
 
     function lies() {
       function sicht(id) { var g = $(id); return g && !g.hidden; }
+      var bekannt = radio('betraege') === 'ja';
       return {
+        betraege_unbekannt: !bekannt,
         pflegegrad: radio('pflegegrad'),
         versorgung: radio('versorgung'),
         antrag_gestellt: radio('antrag_gestellt'),
-        entlastungsbetrag_2026_genutzt_eur: sicht('g-entlastung') ? $('entlastung').value : '',
-        verhinderungs_kurzzeitpflege_2026_genutzt_eur: sicht('g-verhinderung') ? $('verhinderung').value : '',
+        entlastungsbetrag_2026_genutzt_eur: bekannt && sicht('g-entlastung') ? $('entlastung').value : '',
+        verhinderungs_kurzzeitpflege_2026_genutzt_eur: bekannt && sicht('g-verhinderung') ? $('verhinderung').value : '',
         ersatzpflege_2025_noch_nicht_abgerechnet: sicht('g-ersatz') && $('ersatz2025').checked,
         alter_unter_25: sicht('g-unter25') && $('unter25').checked,
         verschlechterung_erwartet: sicht('g-verschlechterung') && $('verschlechterung').checked,
@@ -806,6 +819,7 @@
     }
     function zeige(i, fokus) {
       aktuell = i;
+      if (SCHRITTE[i].id === 's-betraege') { sichtbarkeit(); if ($('g-bekannt') && !$('g-bekannt').hidden) { zaehle('schritt-betraege'); } }
       SCHRITTE.forEach(function (s, idx) { $(s.id).classList.toggle('aktiv', idx === i); });
       aktualisiere();
       if (fokus) {
@@ -834,6 +848,10 @@
       var n = ev.target && ev.target.name;
       var map = { pflegegrad: 'pflegegrad', versorgung: 'versorgung', antrag_gestellt: 'antrag_gestellt' };
       if (n && map[n]) { feldLeeren(map[n]); }
+      if (n === 'betraege') {
+        zaehle(ev.target.value === 'ja' ? 'betraege-bekannt' : 'betraege-unbekannt');
+        if (ev.target.value !== 'ja') { feldLeeren('entlastungsbetrag_2026_genutzt_eur'); feldLeeren('verhinderungs_kurzzeitpflege_2026_genutzt_eur'); }
+      }
       aktualisiere();
     });
     form.addEventListener('submit', function (ev) { ev.preventDefault(); weiter(); });
@@ -892,12 +910,15 @@
       if (inhalt) { wurzel.appendChild(inhalt); }
       return wurzel;
     }
+    var unbekanntFlag = false;
     function leistungInhalt(it) {
       var box = el('div', 'z-inhalt');
       var ul = el('ul', null);
       saetze(it.text).forEach(function (s) { ul.appendChild(el('li', null, s)); });
       box.appendChild(ul);
-      if (it.jahr !== undefined) {
+      if (it.jahr !== undefined && unbekanntFlag) {
+        box.appendChild(el('p', 'z-klein', 'Jahresbetrag ' + fmt(it.jahr) + '. Schon genutzte Beträge haben Sie nicht angegeben.'));
+      } else if (it.jahr !== undefined) {
         box.appendChild(el('p', 'z-klein', 'Jahresbetrag ' + fmt(it.jahr) + ', bereits genutzt ' + fmt(it.genutzt) + '.'));
       }
       if (it.unsicher) { box.appendChild(el('p', 'z-klein', it.unsicher)); }
@@ -1029,6 +1050,7 @@
 
     function render(r, eing) {
       out.textContent = '';
+      unbekanntFlag = r.betraegeUnbekannt === true;
       var wrap = el('div', 'erg');
 
       /* Kopfleiste */
@@ -1052,9 +1074,15 @@
       h2.id = 'ergebnis-titel';
       h2.tabIndex = -1;
       if (hatSumme && sumRest > 0) {
-        h2.appendChild(doc.createTextNode('Bis 31. Dezember können Sie noch'));
-        h2.appendChild(el('span', 'betrag', fmt(sumRest)));
-        h2.appendChild(doc.createTextNode('abrufen.'));
+        if (r.betraegeUnbekannt) {
+          h2.appendChild(doc.createTextNode('Bis zum 31. Dezember können noch bis zu'));
+          h2.appendChild(el('span', 'betrag', fmt(sumRest)));
+          h2.appendChild(doc.createTextNode('offen sein.'));
+        } else {
+          h2.appendChild(doc.createTextNode('Bis 31. Dezember können Sie noch'));
+          h2.appendChild(el('span', 'betrag', fmt(sumRest)));
+          h2.appendChild(doc.createTextNode('abrufen.'));
+        }
       } else if (hatSumme) {
         h2.appendChild(doc.createTextNode('Bei diesen Leistungen ist nach Ihren Angaben nichts mehr offen.'));
       } else {
@@ -1062,6 +1090,9 @@
       }
       flaeche.appendChild(h2);
       if (hatSumme && sumRest > 0) {
+        if (r.betraegeUnbekannt) {
+          flaeche.appendChild(el('p', 'erg-klein', 'Wie viel Sie schon genutzt haben, sagt Ihnen Ihre Pflegekasse am Telefon. Viele Kassen zeigen es auch in ihrer App.'));
+        }
         flaeche.appendChild(el('p', 'erg-klein', 'Was bis Jahresende nicht genutzt wird, kann verfallen.'));
       }
       wrap.appendChild(flaeche);
@@ -1082,7 +1113,7 @@
         geld.forEach(function (it) {
           var sub = KURZ[it.id] || '';
           if (it.status === 'erledigt') { sub = it.betragText; }
-          s1.appendChild(zeile(it.titel.replace(' 2026', ''), sub, fmt(it.betrag), leistungInhalt(it), offen()));
+          s1.appendChild(zeile(it.titel.replace(' 2026', ''), sub, (r.betraegeUnbekannt ? 'bis zu ' : '') + fmt(it.betrag), leistungInhalt(it), offen()));
         });
         wrap.appendChild(s1);
       }

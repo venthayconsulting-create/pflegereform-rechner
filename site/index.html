@@ -17,7 +17,7 @@
 <link rel="preload" href="/assets/fonts/atkinson-hyperlegible-next-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/assets/fonts/atkinson-hyperlegible-next-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/assets/fonts/atkinson-hyperlegible-next-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/assets/style.css?v=416f936752">
+<link rel="stylesheet" href="/assets/style.css?v=65fe928e59">
 </head>
 <body>
 <a class="skip" href="#inhalt">Zum Inhalt springen</a>
@@ -96,18 +96,29 @@
 <fieldset class="field">
 <legend><span class="frage-nr"></span><h3 class="frage-titel" tabindex="-1">Was wurde 2026 schon genutzt?</h3></legend>
 
-<div class="field" id="g-entlastung" hidden>
+<fieldset class="field" id="g-bekannt" aria-describedby="hint-bekannt">
+<legend class="feld-label">Kennen Sie die schon genutzten Beträge?</legend>
+<div class="kacheln zwei">
+<label class="kachel kachel-text kachel-gross"><input type="radio" name="betraege" id="betraege-nein" value="nein"><span>Nein, weiß ich nicht</span></label>
+<label class="kachel kachel-text kachel-gross"><input type="radio" name="betraege" id="betraege-ja" value="ja"><span>Ja, ich trage sie ein</span></label>
+</div>
+<p class="hint" id="hint-bekannt">Ohne Angabe rechnen wir mit 0 € genutzt und zeigen, was höchstens noch offen sein kann.</p>
+</fieldset>
+
+<div id="betraege-felder">
+<div class="field" id="g-entlastung">
 <label class="feld-label" for="entlastung">Wie viel vom Entlastungsbetrag 2026 wurde bereits erstattet oder abgerechnet?</label>
 <div class="betrag-feld"><input type="number" id="entlastung" name="entlastung" inputmode="decimal" autocomplete="off" min="0" max="1572" step="any" value="0" aria-describedby="hint-entlastung err-entlastung"><span class="einheit" aria-hidden="true">€</span></div>
 <p class="error" id="err-entlastung" hidden><svg class="fehler-icon" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true" focusable="false"><circle cx="10" cy="10" r="8.25"/><path d="M10 5.5v5.5M10 14v.5"/></svg><span class="sr-only">Fehler: </span><span class="et"></span></p>
 <details class="feld-hilfe"><summary>Was zählt hier?</summary><p id="hint-entlastung">Summe von Januar bis heute, höchstens 1.572 €. Tragen Sie 0 ein, wenn noch nichts abgerechnet ist. Beträge aus 2025 bitte nicht mitzählen. Besteht der Anspruch erst seit einem späteren Monat 2026, ist Ihr Jahresbetrag niedriger.</p></details>
 </div>
 
-<div class="field" id="g-verhinderung" hidden>
+<div class="field" id="g-verhinderung">
 <label class="feld-label" for="verhinderung">Wie viel vom gemeinsamen Jahresbetrag für Verhinderungs- und Kurzzeitpflege 2026 wurde bereits genutzt?</label>
 <div class="betrag-feld"><input type="number" id="verhinderung" name="verhinderung" inputmode="decimal" autocomplete="off" min="0" max="3539" step="any" value="0" aria-describedby="hint-verhinderung err-verhinderung"><span class="einheit" aria-hidden="true">€</span></div>
 <p class="error" id="err-verhinderung" hidden><svg class="fehler-icon" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true" focusable="false"><circle cx="10" cy="10" r="8.25"/><path d="M10 5.5v5.5M10 14v.5"/></svg><span class="sr-only">Fehler: </span><span class="et"></span></p>
 <details class="feld-hilfe"><summary>Was zählt hier?</summary><p id="hint-verhinderung">Summe der bereits erstatteten oder abgerechneten Beträge 2026, höchstens 3.539 €. Tragen Sie 0 ein, wenn noch nichts genutzt wurde.</p></details>
+</div>
 </div>
 
 <div class="field" id="g-ersatz" hidden>
@@ -229,6 +240,6 @@
 <p class="fuss-klein">Roman Klesper, Venthay Consulting, Bonn. Stand: 14.11.2026. Mit „Anzeige“ gekennzeichnete Links sind Partnerlinks; wir erhalten ggf. eine Vergütung, für Sie entstehen keine Mehrkosten.</p>
 </div>
 </footer>
-<script src="/assets/rechner.js?v=00c4b92a81" defer></script>
+<script src="/assets/rechner.js?v=2288e531dc" defer></script>
 </body>
 </html>
