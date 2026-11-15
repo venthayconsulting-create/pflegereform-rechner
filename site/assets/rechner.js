@@ -476,14 +476,15 @@
   }
 
   /* ---------- Regionale Partner ---------- */
-  /* Alle Partner, deren PLZ-Bereiche die (gültige, 5-stellige) Postleitzahl enthalten. */
-  function partnerAlleFuerPlz(plz, liste) {
+  /* Regionale Partner, deren PLZ-Bereiche die (gültige, 5-stellige) Postleitzahl enthalten. */
+  function partnerRegional(plz, liste) {
     var s = plz === undefined || plz === null ? '' : String(plz).trim();
     var out = [];
     if (!/^[0-9]{5}$/.test(s)) { return out; }
     var n = Number(s);
     var l = liste || PARTNER;
     for (var i = 0; i < l.length; i++) {
+      if (l[i].bundesweit) { continue; }
       var b = l[i].plz_bereiche || [];
       for (var j = 0; j < b.length; j++) {
         if (n >= b[j][0] && n <= b[j][1]) { out.push(l[i]); break; }
@@ -491,9 +492,14 @@
     }
     return out;
   }
-  /* Erster passender Partner oder null. */
+  /* Regionale Treffer zur Postleitzahl, danach alle bundesweiten Partner (unabhängig von der Postleitzahl). */
+  function partnerAlleFuerPlz(plz, liste) {
+    var l = liste || PARTNER;
+    return partnerRegional(plz, l).concat(l.filter(function (p) { return p.bundesweit; }));
+  }
+  /* Erster passender regionaler Partner oder null. */
   function partnerFuerPlz(plz, liste) {
-    var a = partnerAlleFuerPlz(plz, liste);
+    var a = partnerRegional(plz, liste);
     return a.length ? a[0] : null;
   }
   /* Passende Partner für das Ergebnis. zeigen_wenn "entlastung": Entlastungsbetrag-Rest oder Pflegegrad 1 bis 5 zu Hause.
@@ -964,8 +970,9 @@
     }
     function partnerBlock(liste) {
       var box = el('aside', 'partner-box');
-      box.setAttribute('aria-label', 'Anzeige: Partner in Ihrer Region');
-      box.appendChild(el('p', 'anz-hinweis', 'Anzeige: Partner in Ihrer Region'));
+      var kopf = liste.every(function (p) { return !p.bundesweit; }) ? 'Anzeige: Partner in Ihrer Region' : 'Anzeige: Partner';
+      box.setAttribute('aria-label', kopf);
+      box.appendChild(el('p', 'anz-hinweis', kopf));
       var gruppen = [];
       liste.forEach(function (p) {
         var g = PARTNER_GRUPPEN[p.zeigen_wenn] ? p.zeigen_wenn : 'entlastung';
